@@ -103,11 +103,6 @@ let bandit_module k h1 bt =
     let k = k
     let n = int_of_float h1
   end
-  in let module KLP = struct
-    let k = k
-    let n = int_of_float h1
-    let c = 3.
-  end
   in let module Egp = struct
     let k = k
     let epsilon = h1
@@ -123,7 +118,7 @@ let bandit_module k h1 bt =
   in match bt with
   |Exp3 -> (module WrapRange(Rp)(MakeDecayingExp3(KP)):RangedBandit)
   |Ucb1 -> (module WrapRange(Rp)(MakeUCB1(KP)):RangedBandit)
-  |HorizonExp -> (module WrapRange(Rp)(MakeHorizonKLUCB(KLP)):RangedBandit)
+  |HorizonExp -> (module WrapRange(Rp)(MakeDecayingExp3(KP)):RangedBandit)
   |ExpGreedyDecay -> (module Bandit.DummyRange(MakeParametrizableEpsilonGreedy(Egpd)):RangedBandit)
   |ExpGreedy -> (module Bandit.DummyRange(MakeEpsilonGreedy(Egp)):RangedBandit)
 

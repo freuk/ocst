@@ -17,6 +17,7 @@ let rewardTypeEncoding = [("basic",Basic); ("centered",Centered); ("ratio",Ratio
 module type BanditSelectorParam = sig
   include PeriodParam
   val rewardType : rewardType
+  val rate : float
   val jobHeap : Events.event_heap
   val out_reset : out_channel option
   val out_select : out_channel option
@@ -41,73 +42,44 @@ module DummyRange
 end
 
 module MakeBanditSelector
-(BUR:Obandit.RangedBandit)
 (BSP:BanditSelectorParam)
 (Reward:StatSig with type outputStat = float)
 (P:SystemParamSig)
 : ReservationSelector
 = struct
 
-  module B = BUR
-  
   let lastTimeId = ref (-1)
-  let currentPolicy = ref (-1)
+  let currentPolicy = ref (0)
 
-  (**SIMULATION*)
-  let getFcfsReward bheap=
-    begin
-     let module SimulatorParam = struct
-        let eventheap = bheap
-        let output_channel = None
-        let output_channel_bf = None
-     end
-     in let module SystemParam = struct
-        let waitqueue = Jobs.empty_job_waiting_queue ()
-        let resourcestate = Resources.empty_resources P.resourcestate.maxprocs
-        let jobs = P.jobs
-     end
-
-     in let module StatWait : StatSig
-     with type outputStat=float
-     = struct
-       type outputStat = float
-       module M = MakeWaitAccumulator(SystemParam)
-       let n = ref 0
-       let getN () = !n
-       let getStat = M.get
-       let incStat t jl = (M.add t jl; n:=!n+(List.length jl))
-       let reset () =  (n := 0; M.reset() )
-     end
-     in let module Scheduler = MakeEasyGreedy(CriteriaWait)(CriteriaWait)(SystemParam)
-     in let module S = MakeSimulator(StatWait)(Scheduler)(SimulatorParam)(SystemParam)(NoHook)
-     in begin
-       S.simulate () ;
-       (StatWait.getStat (),StatWait.getN ())
-     end
-  end
-
-  let lastBandit = ref B.initialBandit
+  (* Makes a comparator function.*)
+  let makecmp v x y = Pervasives.compare (v x) (v y)
+  (* Gets the argmax of a function on a list.*)
+  let argmin f l = fst (BatList.min_max ~cmp:(makecmp f) l)
 
   let allReorders = listReorderFunctions BSP.policyList (module P:SystemParamSig)
+
+  let karms = List.length BSP.policyList
+
+  let stats = ref (BatList.map (fun p -> (0., 1, p) ) (BatList.range 0 `To (karms-1)))
 
   let reorder now l =
       if (!lastTimeId = -1) || ((now / BSP.period) > !lastTimeId) then
         begin
           lastTimeId := now / BSP.period;
-          let r,n = Reward.getStat (), Reward.getN ()
-          in let () = Reward.reset ()
-          in let reward = match BSP.rewardType with
-            |Basic -> -. r  /. float_of_int n
-            |Centered -> -. r +. fst (getFcfsReward BSP.jobHeap)
-            |Ratio -> -. r /. fst (getFcfsReward BSP.jobHeap)
-            |Raw -> -. r
-          in let a,b = match B.step !lastBandit reward with
-            |Obandit.Action a ,b -> a,b
-            |Obandit.Reset a ,b -> (BatOption.may (fun c ->  Printf.fprintf c "%d\n" now) BSP.out_reset ; a,b)
-          in (currentPolicy := a;
-          let module C = (val (List.nth BSP.policyList a):CriteriaSig)
-          in BatOption.may (fun c ->  Printf.fprintf c "%s\n" C.desc) BSP.out_select ;
-          lastBandit := b;)
+          let r',n' = Reward.getStat (), Reward.getN ()
+          in begin
+            Reward.reset ();
+            stats := BatList.modify_at !currentPolicy (fun (r,n,p) -> (r +. r',n+n',p)) !stats;
+            currentPolicy := 
+              if Random.float 1. < BSP.rate then
+                let _,_,p = argmin (fun (r,n,_) -> r /. (float_of_int n)) !stats
+                in p
+              else
+                Random.int karms;
+            Printf.printf "%d\n" !currentPolicy;
+            let module C = (val (List.nth BSP.policyList !currentPolicy):CriteriaSig)
+            in BatOption.may (fun c ->  Printf.fprintf c "%s\n" C.desc) BSP.out_select ;
+          end
         end;
       (List.nth allReorders !currentPolicy) now l
 end

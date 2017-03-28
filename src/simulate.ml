@@ -303,7 +303,7 @@ let bandit copts explo rewardType algo period backfill threshold policies reset_
        else (module MakeClairvoyantBanditSelector(BSP)(StatWait)(SystemParam):ReservationSelector)
      else 
        let module BSP = struct
-         let explo = explo
+         let rate = explo
          let rewardType = rewardType
          let period = period
          let jobHeap = bheap
@@ -311,8 +311,8 @@ let bandit copts explo rewardType algo period backfill threshold policies reset_
          let out_reset = ocr
          let out_select = ocs
        end
-       in let module B = (val (bandit_module (List.length BSP.policyList) explo algo):RangedBandit)
-       in (module MakeBanditSelector(B)(BSP)(StatWait)(SystemParam):ReservationSelector)
+       (*in let module B = (val (bandit_module (List.length BSP.policyList) explo algo):RangedBandit)*)
+       in (module MakeBanditSelector(BSP)(StatWait)(SystemParam):ReservationSelector)
 
      in let module Scheduler = MakeEasyScheduler((val cr:ReservationSelector))(MakeGreedySelector(CritBackfill)(SystemParam))(SystemParam)
 

@@ -68,40 +68,40 @@ end
 
 module CriteriaMinusWait:CriteriaSig = MakeMinus(CriteriaWait)
 
-module CriteriaLRF = struct
+module CriteriaSRF = struct
   let desc="Q/P ratio"
   let criteria jobs now id = let j = find jobs id in float_of_int j.q /. (float_of_int (max 1 j.p_est))
 end
 
-module CriteriaSRF = MakeMinus(CriteriaLRF)
+module CriteriaLRF = MakeMinus(CriteriaLRF)
 
-module CriteriaLAF = struct
+module CriteriaSAF = struct
   let desc="Job maximum Area"
   let criteria jobs now id = let j = find jobs id in float_of_int (j.q * j.p_est)
 end
 
-module CriteriaSAF = MakeMinus(CriteriaLAF)
+module CriteriaLAF = MakeMinus(CriteriaLAF)
 
-module CriteriaLQF = struct
+module CriteriSQF = struct
   let desc="Resource Requirement"
   let criteria jobs now id = float_of_int (find jobs id).q
 end
 
-module CriteriaSQF = MakeMinus(CriteriaLQF)
+module CriteriaLQF = MakeMinus(CriteriaLQF)
 
-module CriteriaLPF = struct
+module CriteriaSPF = struct
   let desc="Processing time"
   let criteria jobs now id = float_of_int (find jobs id).p_est
 end
 
-module CriteriaSPF = MakeMinus(CriteriaLPF)
+module CriteriaLPF = MakeMinus(CriteriaLPF)
 
-module CriteriaExpFact = struct
+module CriteriaMExpFact = struct
   let desc="Expansion Factor"
   let criteria jobs now id = (float_of_int (now - (find jobs id).r + (find jobs id).p_est)) /. float_of_int (find jobs id).p_est
 end
 
-module CriteriaMExpFact = MakeMinus(CriteriaExpFact)
+module CriteriaExpFact = MakeMinus(CriteriaExpFact)
 
 module type ThresholdSig = sig
   val threshold : float

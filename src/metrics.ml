@@ -73,35 +73,35 @@ module CriteriaSRF = struct
   let criteria jobs now id = let j = find jobs id in float_of_int j.q /. (float_of_int (max 1 j.p_est))
 end
 
-module CriteriaLRF = MakeMinus(CriteriaLRF)
+module CriteriaLRF = MakeMinus(CriteriaSRF)
 
 module CriteriaSAF = struct
   let desc="Job maximum Area"
   let criteria jobs now id = let j = find jobs id in float_of_int (j.q * j.p_est)
 end
 
-module CriteriaLAF = MakeMinus(CriteriaLAF)
+module CriteriaLAF = MakeMinus(CriteriaSAF)
 
-module CriteriSQF = struct
+module CriteriaSQF = struct
   let desc="Resource Requirement"
   let criteria jobs now id = float_of_int (find jobs id).q
 end
 
-module CriteriaLQF = MakeMinus(CriteriaLQF)
+module CriteriaLQF = MakeMinus(CriteriaSQF)
 
 module CriteriaSPF = struct
   let desc="Processing time"
   let criteria jobs now id = float_of_int (find jobs id).p_est
 end
 
-module CriteriaLPF = MakeMinus(CriteriaLPF)
+module CriteriaLPF = MakeMinus(CriteriaSPF)
 
 module CriteriaMExpFact = struct
   let desc="Expansion Factor"
   let criteria jobs now id = (float_of_int (now - (find jobs id).r + (find jobs id).p_est)) /. float_of_int (find jobs id).p_est
 end
 
-module CriteriaExpFact = MakeMinus(CriteriaExpFact)
+module CriteriaExpFact = MakeMinus(CriteriaMExpFact)
 
 module type ThresholdSig = sig
   val threshold : float

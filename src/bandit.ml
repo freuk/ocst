@@ -1,6 +1,6 @@
 open Obandit
-open Events
 open Engine
+open Events
 open Easy
 open Metrics
 
@@ -119,12 +119,12 @@ module MakeClairvoyantBanditSelector
   let lastN = ref 0
   let lastTimeId = ref (-1)
   let currentPolicy = ref (module MakeReservationSelector(P)(CriteriaWait):ReservationSelector)
-  let stats = ref (BatList.map (fun p -> (0., 0, p) ) BSP.policyList)
+  let stats = ref (BatList.map (fun p -> (0., p) ) BSP.policyList)
 
   let allReorders = listReorderFunctions BSP.policyList (module P:SystemParamSig)
 
   (**SIMULATION*)
-  let getReward bheap policy=
+  let getReward wq rstate bheap policy=
     begin
      let module SimulatorParam = struct
         let eventheap = bheap
@@ -132,7 +132,7 @@ module MakeClairvoyantBanditSelector
         let output_channel_bf = None
      end
      in let module SystemParam = struct
-        let waitqueue = Jobs.empty_job_waiting_queue ()
+        let waitqueue = ref wq
         let resourcestate = Resources.empty_resources P.resourcestate.maxprocs
         let jobs = P.jobs
      end
@@ -152,7 +152,7 @@ module MakeClairvoyantBanditSelector
      in let module S = MakeSimulator(StatWait)(Scheduler)(SimulatorParam)(SystemParam)(NoHook)
      in begin
        S.simulate () ;
-       StatWait.getStat (), StatWait.getN ()
+       StatWait.getStat ()
      end
   end
 
@@ -164,11 +164,11 @@ module MakeClairvoyantBanditSelector
             let bh = Events.empty_event_heap ()
             in let fins e = Events.submit_job e.id (Jobs.find P.jobs e.id).r bh
             in let () = Events.Heap.iter fins BSP.jobHeap 
-            in let x,n,p = t
-            in let r , n' = getReward bh p
-            in x +. r, n + n', p
+            in let x,p = t
+            in let r  = getReward !P.waitqueue P.resourcestate bh p
+            in x +. r, p
           in stats := List.map f !stats;
-          let fp t = let x,n,p = t 
+          let fp t = let x,p = t 
             in let module C = (val p:CriteriaSig)
             in  Printf.printf "%f: %s \n" x C.desc
           in List.iter fp !stats;
@@ -176,11 +176,11 @@ module MakeClairvoyantBanditSelector
             ignore (Events.pop_event BSP.jobHeap)
           done;
           let f t = 
-            let x, n, p = t
-            in x /. float_of_int n
+            let x, p = t
+            in x
           in let comp t1 t2 = compare (f t1) (f t2)
           in currentPolicy := 
-             let _,_,p = fst (BatList.min_max ~cmp:comp !stats)
+             let _,p = fst (BatList.min_max ~cmp:comp !stats)
              in let module C = (val p:CriteriaSig)
              in let () = BatOption.may (fun c ->  Printf.fprintf c "%s\n" C.desc) BSP.out_select ;
              in (module MakeReservationSelector(P)(C))
@@ -229,7 +229,7 @@ module MakeNoisyBanditSelector
        let incStat t jl = (M.add t jl; n:=!n+(List.length jl))
      let reset () =  (n := 0; M.reset() )
      end
-     in let module Scheduler = MakeEasyGreedy((val policy:CriteriaSig))(CriteriaWait)(SystemParam)
+     in let module Scheduler = MakeEasyGreedy((val policy:CriteriaSig))(CriteriaSPF)(SystemParam)
      in let module S = MakeSimulator(StatWait)(Scheduler)(SimulatorParam)(SystemParam)(NoHook)
      in begin
        S.simulate () ;

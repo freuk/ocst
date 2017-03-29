@@ -152,7 +152,7 @@ module MakeClairvoyantBanditSelector
      in let module S = MakeSimulator(StatWait)(Scheduler)(SimulatorParam)(SystemParam)(NoHook)
      in begin
        S.simulate () ;
-       StatWait.getStat ()
+       StatWait.getStat (), StatWait.getN ()
      end
   end
 
@@ -165,8 +165,8 @@ module MakeClairvoyantBanditSelector
             in let fins e = Events.submit_job e.id (Jobs.find P.jobs e.id).r bh
             in let () = Events.Heap.iter fins BSP.jobHeap 
             in let x,n,p = t
-            in let r = getReward bh p
-            in ((x *. float_of_int n) +. r) /. (float_of_int (n+1)), n+1, p
+            in let r , n' = getReward bh p
+            in x +. r, n + n', p
           in stats := List.map f !stats;
           let fp t = let x,n,p = t 
             in let module C = (val p:CriteriaSig)
@@ -177,7 +177,7 @@ module MakeClairvoyantBanditSelector
           done;
           let f t = 
             let x, n, p = t
-            in x
+            in x /. float_of_int n
           in let comp t1 t2 = compare (f t1) (f t2)
           in currentPolicy := 
              let _,_,p = fst (BatList.min_max ~cmp:comp !stats)

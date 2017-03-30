@@ -148,7 +148,7 @@ module MakeClairvoyantBanditSelector
        let incStat t jl = (M.add t jl; n:=!n+(List.length jl))
      let reset () =  (n := 0; M.reset() )
      end
-     in let module Scheduler = MakeEasyGreedy((val policy:CriteriaSig))(CriteriaWait)(SystemParam)
+     in let module Scheduler = MakeEasyGreedy((val policy:CriteriaSig))(CriteriaSQF)(SystemParam)
      in let module S = MakeSimulator(StatWait)(Scheduler)(SimulatorParam)(SystemParam)(NoHook)
      in begin
        S.simulate () ;

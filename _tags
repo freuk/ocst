@@ -1,7 +1,6 @@
 true : bin_annot, safe_string, package(bytes)
 
 true : package(cmdliner)
-true : package(obandit)
 
 <src> : include
 <test> : include

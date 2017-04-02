@@ -107,9 +107,10 @@ module type ClairvoyantBanditParam = sig
   include PeriodParam
   val jobHeap : Events.event_heap
   val out_select : out_channel option
+  val noise: bool
 end
 
-module MakeClairvoyantBanditSelector
+module MakeSimulationSelector
 (BSP:ClairvoyantBanditParam)
 (Reward:StatSig with type outputStat = float)
 (P:SystemParamSig)
@@ -152,7 +153,9 @@ module MakeClairvoyantBanditSelector
      in let module S = MakeSimulator(StatWait)(Scheduler)(SimulatorParam)(SystemParam)(NoHook)
      in begin
        S.simulate () ;
-       StatWait.getStat ()
+       let s = StatWait.getStat ()
+       in if BSP.noise then  s *. ((Random.float 0.4) +. 0.8)
+       else s
      end
   end
 
@@ -181,88 +184,6 @@ module MakeClairvoyantBanditSelector
           in let comp t1 t2 = compare (f t1) (f t2)
           in currentPolicy := 
              let _,p = fst (BatList.min_max ~cmp:comp !stats)
-             in let module C = (val p:CriteriaSig)
-             in let () = BatOption.may (fun c ->  Printf.fprintf c "%s\n" C.desc) BSP.out_select ;
-             in (module MakeReservationSelector(P)(C))
-        end;
-        let module M = (val !currentPolicy:ReservationSelector)
-        in M.reorder now l
-end
-
-
-module MakeNoisyBanditSelector
-(BSP:ClairvoyantBanditParam)
-(Reward:StatSig with type outputStat = float)
-(P:SystemParamSig)
-: ReservationSelector
-= struct
-  let lastReward = ref 0.
-  let lastN = ref 0
-  let lastTimeId = ref (-1)
-  let currentPolicy = ref (module MakeReservationSelector(P)(CriteriaWait):ReservationSelector)
-  let stats = ref (BatList.map (fun p -> (0., 0, p) ) BSP.policyList)
-
-  let allReorders = listReorderFunctions BSP.policyList (module P:SystemParamSig)
-
-  (**SIMULATION*)
-  let getReward bheap policy=
-    begin
-     let module SimulatorParam = struct
-        let eventheap = bheap
-        let output_channel = None
-        let output_channel_bf = None
-     end
-     in let module SystemParam = struct
-        let waitqueue = Jobs.empty_job_waiting_queue ()
-        let resourcestate = Resources.empty_resources P.resourcestate.maxprocs
-        let jobs = P.jobs
-     end
-
-     in let module StatWait : StatSig
-     with type outputStat=float
-     = struct
-       type outputStat = float
-       module M = MakeWaitAccumulator(SystemParam)
-       let n = ref 0
-       let getN () = !n
-       let getStat = M.get
-       let incStat t jl = (M.add t jl; n:=!n+(List.length jl))
-     let reset () =  (n := 0; M.reset() )
-     end
-     in let module Scheduler = MakeEasyGreedy((val policy:CriteriaSig))(CriteriaSQF)(SystemParam)
-     in let module S = MakeSimulator(StatWait)(Scheduler)(SimulatorParam)(SystemParam)(NoHook)
-     in begin
-       S.simulate () ;
-       let s = StatWait.getStat ()
-       in s +. (Random.float (s *. 30. /. 100.)) -. (s *. 15. /. 100.)
-     end
-  end
-
-  let reorder now l =
-      if (!lastTimeId = -1) || ((now / BSP.period) > !lastTimeId) then
-        begin
-          lastTimeId := now / BSP.period;
-          let f t =
-            let bh = Events.empty_event_heap ()
-            in let fins e = Events.submit_job e.id (Jobs.find P.jobs e.id).r bh
-            in let () = Events.Heap.iter fins BSP.jobHeap 
-            in let x,n,p = t
-            in let r = getReward bh p
-            in ((x *. float_of_int n) +. r) /. (float_of_int (n+1)), n+1, p
-          in stats := List.map f !stats;
-          let fp t = let x,n,p = t 
-            in let module C = (val p:CriteriaSig)
-            in  Printf.printf "%f: %s \n" x C.desc
-          in List.iter fp !stats;
-          while (not (Events.Heap.is_empty BSP.jobHeap)) do
-            ignore (Events.pop_event BSP.jobHeap)
-          done;
-          let f t = 
-            let x, n, p = t
-            in x
-          in let comp t1 t2 = compare (f t1) (f t2)
-          in currentPolicy := 
-             let _,_,p = fst (BatList.min_max ~cmp:comp !stats)
              in let module C = (val p:CriteriaSig)
              in let () = BatOption.may (fun c ->  Printf.fprintf c "%s\n" C.desc) BSP.out_select ;
              in (module MakeReservationSelector(P)(C))

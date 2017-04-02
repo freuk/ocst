@@ -298,9 +298,9 @@ let bandit copts explo rewardType algo period backfill threshold policies reset_
          let jobHeap = bheap
          let policyList = List.map (threshold_wait_criteria threshold) policies
          let out_select = ocs
+         let noise = noisy
        end
-       in if noisy then (module MakeNoisyBanditSelector(BSP)(StatWait)(SystemParam):ReservationSelector)
-       else (module MakeClairvoyantBanditSelector(BSP)(StatWait)(SystemParam):ReservationSelector)
+       in (module MakeSimulationSelector(BSP)(StatWait)(SystemParam):ReservationSelector)
      else 
        let module BSP = struct
          let rate = explo

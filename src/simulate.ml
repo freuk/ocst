@@ -132,36 +132,33 @@ let mixingList =
     [("prob", Probabilistic);
     ("score", Scorebased);]
 
-let mixed copts r1 r2 alpha backfill objective threshold mixType=
+let mixed copts alpha backfill objective threshold mixType=
   let getmodule systemmodule = begin
 
    let module O = (val objective:CriteriaSig)
 
-   in let module T = struct let threshold= threshold end
+   in let module T = struct let threshold = threshold end
 
-   in let module C1 = ((val r1:CriteriaSig))
-   in let module C2 = ((val r2:CriteriaSig))
+   in let module MixParam = struct
+     let alpha = alpha
+   end
 
-   in match mixType with
-     |Scorebased ->
-       let module MixParam = struct
-         let alpha = alpha
-       end
+   in let module CritReserve = MakeThresholdedCriteria(T)(O)(MakeMixedMetric(MixParam))
+   in let  module CritBackfill = MakeThresholdedCriteria(T)(O)((val backfill:CriteriaSig))
+   in let module SP = (val systemmodule : SystemParamSig)
+   in (module MakeEasyGreedy(CritReserve)(CritBackfill)(SP):SchedulerSig)
 
-       in let module CritReserve = MakeThresholdedCriteria(T)(O)(MakeMixedMetric(MixParam)(C1)(C2))
-       in let  module CritBackfill = MakeThresholdedCriteria(T)(O)((val backfill:CriteriaSig))
+   (*in match mixType with*)
+     (*|Scorebased ->*)
+     (*|Probabilistic ->*)
+       (*let module MixParam = struct*)
+         (*let p = alpha*)
+       (*end*)
 
-       in let module SP = (val systemmodule : SystemParamSig)
-       in (module MakeEasyGreedy(CritReserve)(CritBackfill)(SP):SchedulerSig)
-     |Probabilistic ->
-       let module MixParam = struct
-         let p = alpha
-       end
+       (*in let  module CritBackfill = MakeThresholdedCriteria(T)(O)((val backfill:CriteriaSig))*)
 
-       in let  module CritBackfill = MakeThresholdedCriteria(T)(O)((val backfill:CriteriaSig))
-
-       in let module SP = (val systemmodule : SystemParamSig)
-       in (module MakeEasyBernouilli(C1)(C2)(MixParam)(CritBackfill)(SP):SchedulerSig)
+       (*in let module SP = (val systemmodule : SystemParamSig)*)
+       (*in (module MakeEasyBernouilli(C1)(C2)(MixParam)(CritBackfill)(SP):SchedulerSig)*)
 
   end
   in simulator_boilerplate getmodule copts

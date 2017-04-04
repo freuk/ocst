@@ -63,12 +63,6 @@ let help_cmd =
 
 let mixed_cmd =
   let docs = copts_sect
-  in let reservation =
-    let doc = "Primary policy 1." in
-    Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "wait" Metrics.criteriaList) & info ["primary"] ~docv:"PRIMARY" ~doc)
-  in let reservation2 =
-    let doc = "Primary policy 2." in
-    Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "wait" Metrics.criteriaList) & info ["primarybis"] ~docv:"PRIMARYBIS" ~doc)
   in let backfill =
     let doc = "Backfilling policy." in
     Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "wait" Metrics.criteriaList) & info ["backfill"] ~docv:"BACKFILL" ~doc)
@@ -79,8 +73,8 @@ let mixed_cmd =
     let doc = "Threshold value." in
     Arg.(value & opt float 10000. & info ["threshold"] ~docv:"THRESHOLD" ~doc)
   in let alpha =
-    let doc = "Mixing parameter in [0,1]. At 1 policy 2 is used, at 0 policy 1 is used." in
-    Arg.(value & opt float 0.5 & info ["mixingparam"] ~docv:"PARAM" ~doc)
+    let doc = "Mixing parameter." in
+    Arg.(value & opt (list ~sep:',' float) Metrics.zeroMixed & info ["alpha"] ~docv:"ALPHA" ~doc)
   in let mixingtype =
     let doc = "Mixing type." in
     Arg.(value & opt (enum Simulate.mixingList) (BatList.assoc "prob" Simulate.mixingList) & info ["mixtype"] ~docv:"MIXTYPE" ~doc)
@@ -91,7 +85,7 @@ let mixed_cmd =
     [`S "DESCRIPTION";
      `P doc] @ help_secs
   in
-  Term.(const Simulate.mixed$ copts_t $ reservation $ reservation2 $ alpha $ backfill $ objective $ threshold $ mixingtype),
+  Term.(const Simulate.mixed$ copts_t $ alpha $ backfill $ objective $ threshold $ mixingtype),
   Term.info "mixed" ~doc ~sdocs:docs ~man
 
 

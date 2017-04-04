@@ -31,27 +31,7 @@ struct
 end
 
 module type ParamMixing = sig
-  val alpha : float
-end
-
-module MakeMixedMetric(P:ParamMixing)(C1:CriteriaSig)(C2:CriteriaSig) : CriteriaSig =
-struct
-  let desc = "Mixed metric with " ^ C1.desc ^ " and " ^ C2.desc ^ (Printf.sprintf " , mixing parameter %f." P.alpha)
-  let maxC1 = ref 0.
-  let maxC2 = ref 0.
-  let minC1 = ref 0.
-  let minC2 = ref 0.
-  let criteria j n i = 
-    let normcrit crit minref maxref = 
-      let c = crit j n i
-      in begin
-        maxref := max !maxref c;
-        minref := min !minref c;
-        (c -. !minref) /. (max 0.000001 (!maxref -. !minref))
-      end
-    in let c1 = normcrit C1.criteria minC1 maxC1
-       and c2 = normcrit C2.criteria minC2 maxC2
-    in ((1. -. P.alpha) *. c1) +. (P.alpha *. c2)
+  val alpha : float list
 end
 
 module CriteriaBSLD = struct
@@ -105,6 +85,26 @@ module CriteriaExpFact = MakeMinus(CriteriaMExpFact)
 
 module type ThresholdSig = sig
   val threshold : float
+end
+
+let rawPolicyList = [CriteriaSPF.criteria;
+                     CriteriaSQF.criteria;
+                     CriteriaSRF.criteria;
+                     CriteriaSAF.criteria;
+                     CriteriaExpFact.criteria;
+                     CriteriaSAF.criteria;
+                     CriteriaWait.criteria;]
+let zeroMixed = List.map (fun _ -> 0.) rawPolicyList
+let mixDim = List.length rawPolicyList
+
+module MakeMixedMetric(P:ParamMixing) : CriteriaSig =
+struct
+
+  assert (List.length P.alpha = mixDim)
+
+  let desc = "Mixed metric."
+  let criteria j n i = 
+    List.fold_left2 (fun s weight crit -> s +. (weight *. (crit j n i))) 0. P.alpha rawPolicyList 
 end
 
 module MakeThresholdedCriteria (T:ThresholdSig)(O:CriteriaSig)(C:CriteriaSig) : CriteriaSig =

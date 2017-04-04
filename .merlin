@@ -1,5 +1,6 @@
 PKG bytes
 PKG cmdliner
+PKG batteries
 S src
 S test
 B _build/**

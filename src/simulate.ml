@@ -5,7 +5,6 @@ open Metrics
 open Jobs
 open Engine
 open Bandit
-open Obandit
 
 let timesched f x =
     let () = Printf.printf "%s\n" "Simulating.."
@@ -93,34 +92,34 @@ let simulator_boilerplate modulemaker copts = begin
    end;
 end
 
-type banditalg = Exp3 | Ucb1 | HorizonExp | ExpGreedy | ExpGreedyDecay
-let bandit_encoding = [("exp",Exp3);("ucb",Ucb1);("horizonexp",HorizonExp);("expgreedy",ExpGreedy);("expgreedy-decay",ExpGreedyDecay)]
-let bandit_module k h1 bt =
-  let module KP = struct
-    let k = k
-  end
-  in let module KHP = struct
-    let k = k
-    let n = int_of_float h1
-  end
-  in let module Egp = struct
-    let k = k
-    let epsilon = h1
-  end
-  in let module Egpd = struct
-    let k = k
-    let rate t = h1 /. (float_of_int t)
-  end
-  in let module Rp = struct
-    let lower= -. 40000.
-    let upper= 0.
-  end
-  in match bt with
-  |Exp3 -> (module WrapRange(Rp)(MakeDecayingExp3(KP)):RangedBandit)
-  |Ucb1 -> (module WrapRange(Rp)(MakeUCB1(KP)):RangedBandit)
-  |HorizonExp -> (module WrapRange(Rp)(MakeDecayingExp3(KP)):RangedBandit)
-  |ExpGreedyDecay -> (module Bandit.DummyRange(MakeParametrizableEpsilonGreedy(Egpd)):RangedBandit)
-  |ExpGreedy -> (module Bandit.DummyRange(MakeEpsilonGreedy(Egp)):RangedBandit)
+(*type banditalg = Exp3 | Ucb1 | HorizonExp | ExpGreedy | ExpGreedyDecay*)
+(*let bandit_encoding = [("exp",Exp3);("ucb",Ucb1);("horizonexp",HorizonExp);("expgreedy",ExpGreedy);("expgreedy-decay",ExpGreedyDecay)]*)
+(*let bandit_module k h1 bt =*)
+  (*let module KP = struct*)
+    (*let k = k*)
+  (*end*)
+  (*in let module KHP = struct*)
+    (*let k = k*)
+    (*let n = int_of_float h1*)
+  (*end*)
+  (*in let module Egp = struct*)
+    (*let k = k*)
+    (*let epsilon = h1*)
+  (*end*)
+  (*in let module Egpd = struct*)
+    (*let k = k*)
+    (*let rate t = h1 /. (float_of_int t)*)
+  (*end*)
+  (*in let module Rp = struct*)
+    (*let lower= -. 40000.*)
+    (*let upper= 0.*)
+  (*end*)
+  (*in match bt with*)
+  (*|Exp3 -> (module WrapRange(Rp)(MakeDecayingExp3(KP)):RangedBandit)*)
+  (*|Ucb1 -> (module WrapRange(Rp)(MakeUCB1(KP)):RangedBandit)*)
+  (*|HorizonExp -> (module WrapRange(Rp)(MakeDecayingExp3(KP)):RangedBandit)*)
+  (*|ExpGreedyDecay -> (module Bandit.DummyRange(MakeParametrizableEpsilonGreedy(Egpd)):RangedBandit)*)
+  (*|ExpGreedy -> (module Bandit.DummyRange(MakeEpsilonGreedy(Egp)):RangedBandit)*)
 
 let threshold_wait_criteria th m =
   let module T = struct
@@ -235,7 +234,7 @@ let randomBandit copts period backfill threshold policies=
   end
   in simulator_boilerplate getmodule copts
 
-let bandit copts explo rewardType algo period backfill threshold policies reset_out clv noisy select_out=
+let bandit copts explo rewardType period backfill threshold policies reset_out clv noisy select_out=
   begin
    let module CritBackfill = (val backfill:CriteriaSig)
 

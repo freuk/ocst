@@ -1,4 +1,3 @@
-open Obandit
 open Engine
 open Events
 open Easy
@@ -28,18 +27,6 @@ let listReorderFunctions lc systemModule =
     let module M = MakeReservationSelector((val systemModule:SystemParamSig))((val m:CriteriaSig))
     in M.reorder
   in List.map f lc
-
-module DummyRange
-(B:Bandit)
-:RangedBandit with type bandit=B.bandit
-= struct
-  type bandit = B.bandit
-  let initialBandit = {bandit=B.initialBandit;
-                       u=0.;
-                       l=0.}
-  let step b x = let a,bn = B.step b.bandit x
-                 in (Action a, {b with bandit = bn})
-end
 
 module MakeBanditSelector
 (BSP:BanditSelectorParam)

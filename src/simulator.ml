@@ -181,9 +181,6 @@ let bandit_cmd =
   in let rewardType =
     let doc = "Use opposite Reward." in
     Arg.(value & opt (enum Bandit.rewardTypeEncoding) Bandit.Basic & info ["rewardtype"] ~docs ~doc)
-  in let algo =
-    let doc = "Bandit algorithm among ucb, exp, horizonexp" in
-    Arg.(value & opt (enum Simulate.bandit_encoding) Exp3 & info ["algo"] ~docv:"ALGO" ~doc)
   in let period =
     let doc = "Period value." in
     Arg.(value & opt int 86400 & info ["period"] ~docv:"PERIOD" ~doc)
@@ -202,7 +199,7 @@ let bandit_cmd =
     [`S "DESCRIPTION";
      `P doc] @ help_secs
   in
-  Term.(const Simulate.bandit $ copts_t $ explo $ rewardType $ algo $ period  $ backfill $ threshold $ policies $ reset_out $ clairvoyant $ noisy $ select_out),
+  Term.(const Simulate.bandit $ copts_t $ explo $ rewardType $ period  $ backfill $ threshold $ policies $ reset_out $ clairvoyant $ noisy $ select_out),
   Term.info "bandit-onpolicy" ~doc ~sdocs:docs ~man
 
 let cmds = [mixed_cmd;bandit_random_cmd;bandit_cmd; oneshot_cmd; threshold_cmd; help_cmd]

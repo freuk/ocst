@@ -92,7 +92,6 @@ let rawPolicyList = [CriteriaSPF.criteria;
                      CriteriaSRF.criteria;
                      CriteriaSAF.criteria;
                      CriteriaExpFact.criteria;
-                     CriteriaSAF.criteria;
                      CriteriaWait.criteria;]
 let zeroMixed = List.map (fun _ -> 0.) rawPolicyList
 let mixDim = List.length rawPolicyList

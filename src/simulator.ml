@@ -160,6 +160,9 @@ let bandit_cmd =
   in let clairvoyant =
     let doc = "Use full feedback." in
     Arg.(value & flag & info ["clairvoyant"] ~docs ~doc)
+  in let clvOut =
+    let doc = "Clairvoyant output file." in
+    Arg.(value & opt (some string) None & info ["clvo"] ~docv:"LOGCLV" ~doc)
   in let noisy =
     let doc = "Make the full feedback noisy." in
     Arg.(value & flag & info ["noisy"] ~docs ~doc)
@@ -193,7 +196,7 @@ let bandit_cmd =
     [`S "DESCRIPTION";
      `P doc] @ help_secs
   in
-  Term.(const Simulate.bandit $ copts_t $ explo $ rewardType $ period  $ backfill $ threshold $ policies $ reset_out $ clairvoyant $ noisy $ select_out),
+  Term.(const Simulate.bandit $ copts_t $ explo $ rewardType $ period  $ backfill $ threshold $ policies $ reset_out $ clairvoyant $ noisy $ select_out $ clvOut),
   Term.info "bandit-onpolicy" ~doc ~sdocs:docs ~man
 
 let cmds = [mixed_cmd;bandit_random_cmd;bandit_cmd; oneshot_cmd; threshold_cmd; help_cmd]

@@ -95,6 +95,7 @@ module type ClairvoyantBanditParam = sig
   val jobHeap : Events.event_heap
   val out_select : out_channel option
   val noise: bool
+  val outClv : out_channel option
 end
 
 module MakeSimulationSelector
@@ -106,6 +107,9 @@ module MakeSimulationSelector
   let lastReward = ref 0.
   let lastN = ref 0
   let lastTimeId = ref (-1)
+  let lastWaitQueue = Jobs.empty_job_waiting_queue ()
+  let lastResourceState = ref (Resources.empty_resources P.resourcestate.maxprocs)
+
   let currentPolicy = ref (module MakeReservationSelector(P)(CriteriaWait):ReservationSelector)
   let stats = ref (BatList.map (fun p -> (0., p) ) BSP.policyList)
 
@@ -146,18 +150,38 @@ module MakeSimulationSelector
      end
   end
 
+  let stringState rs wq now = 
+    let module Pp = struct
+      let jobs=P.jobs
+      let resourcestate = rs
+      let waitqueue = ref wq
+    end
+    in let module FeatureMap = Features.MakeSystemFeatures(Pp)
+    in let printer = BatArray.print BatFloat.print
+    in BatIO.to_string printer (FeatureMap.makeVector now)
+
   let reorder now l =
       if (!lastTimeId = -1) || ((now / BSP.period) > !lastTimeId) then
         begin
           lastTimeId := now / BSP.period;
+          let fprintclv chan = Printf.fprintf chan "%s" (stringState !lastResourceState !lastWaitQueue now)
+          in BatOption.may fprintclv BSP.outClv;
           let f t =
             let bh = Events.empty_event_heap ()
             in let fins e = Events.submit_job e.id (Jobs.find P.jobs e.id).r bh
             in let () = Events.Heap.iter fins BSP.jobHeap 
             in let x,p = t
-            in let r  = getReward !P.waitqueue P.resourcestate bh p
-            in x +. r, p
+            in let r  = getReward !lastWaitQueue !lastResourceState bh p
+            in begin
+              let fprintclv chan =  Printf.fprintf chan " %f" r
+              in BatOption.may fprintclv BSP.outClv;
+              x +. r, p
+            end
           in stats := List.map f !stats;
+          let fprintclv chan =  Printf.fprintf chan "%s" "\n"
+          in BatOption.may fprintclv BSP.outClv;
+          lastWaitQueue := !P.waitqueue;
+          lastResourceState := Resources.copy P.resourcestate;
           let fp t = let x,p = t 
             in let module C = (val p:CriteriaSig)
             in  Printf.printf "%f: %s \n" x C.desc

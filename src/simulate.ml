@@ -231,7 +231,7 @@ let randomBandit copts period backfill threshold policies=
   end
   in simulator_boilerplate getmodule copts
 
-let bandit copts explo rewardType period backfill threshold policies reset_out clv noisy select_out=
+let bandit copts explo rewardType period backfill threshold policies reset_out clv noisy select_out clvOut=
   begin
    let module CritBackfill = (val backfill:CriteriaSig)
 
@@ -244,14 +244,15 @@ let bandit copts explo rewardType period backfill threshold policies reset_out c
 
    in let job_table,maxprocs = Io.parse_jobs copts.swf_in
 
-   in let oc,ocb,ocr,ocs = 
+   in let oc,ocb,ocr,ocs,occ = 
      begin
        if copts.debug then Printf.printf "%s \n" "Opening channels..";
        let oc = BatOption.map open_out copts.swf_out
        and ocb =  BatOption.map open_out copts.backfill_out
        and ocr =  BatOption.map open_out reset_out 
        and ocs =  BatOption.map open_out select_out 
-       in (if copts.debug then Printf.printf "%s \n" "Done"; oc,ocb,ocr,ocs)
+       and occ =  BatOption.map open_out clvOut
+       in (if copts.debug then Printf.printf "%s \n" "Done"; oc,ocb,ocr,ocs,occ)
      end
 
    in try
@@ -295,6 +296,7 @@ let bandit copts explo rewardType period backfill threshold policies reset_out c
          let policyList = List.map (threshold_wait_criteria threshold) policies
          let out_select = ocs
          let noise = noisy
+         let outClv = occ
        end
        in (module MakeSimulationSelector(BSP)(StatWait)(SystemParam):ReservationSelector)
      else 
@@ -328,6 +330,7 @@ let bandit copts explo rewardType period backfill threshold policies reset_out c
      begin
        BatOption.may close_out_noerr oc;
        BatOption.may close_out_noerr ocb;
+       BatOption.may close_out_noerr occ;
        raise e;
      end
   end

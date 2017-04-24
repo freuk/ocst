@@ -49,8 +49,8 @@ end
 module CriteriaMinusWait:CriteriaSig = MakeMinus(CriteriaWait)
 
 module CriteriaSRF = struct
-  let desc="Q/P ratio"
-  let criteria jobs now id = let j = find jobs id in float_of_int j.q /. (float_of_int (max 1 j.p_est))
+  let desc="P/Q ratio"
+  let criteria jobs now id = let j = find jobs id in float_of_int j.p /. (float_of_int (max 1 j.q))
 end
 
 module CriteriaLRF = MakeMinus(CriteriaSRF)
@@ -81,6 +81,13 @@ module CriteriaMExpFact = struct
   let criteria jobs now id = (float_of_int (now - (find jobs id).r + (find jobs id).p_est)) /. float_of_int (find jobs id).p_est
 end
 
+module CriteriaSRwF = struct
+  let desc="wait/q ratio"
+  let criteria jobs now id = let j = find jobs id in float_of_int (now - j.r) /. (float_of_int (max 1 j.q))
+end
+
+module CriteriaLRwF = MakeMinus(CriteriaSRwF)
+
 module CriteriaExpFact = MakeMinus(CriteriaMExpFact)
 
 module type ThresholdSig = sig
@@ -89,12 +96,13 @@ end
 
 let rawPolicyList = [CriteriaSPF.criteria;
                      CriteriaSQF.criteria;
+                     CriteriaWait.criteria;
                      CriteriaSRF.criteria;
-                     CriteriaSAF.criteria;
-                     CriteriaExpFact.criteria;
-                     CriteriaWait.criteria;]
+                     CriteriaSRwF.criteria;]
 let zeroMixed = List.map (fun _ -> 0.) rawPolicyList
-let mixDim = List.length rawPolicyList
+let makeProduct cp x y z = let c1, c2 = cp in (c1 x y z) *. (c2 x y z)
+let highDimPolicyList = List.append rawPolicyList (List.map makeProduct (BatList.cartesian_product rawPolicyList rawPolicyList))
+let mixDim = List.length highDimPolicyList
 
 module MakeMixedMetric(P:ParamMixing) : CriteriaSig =
 struct
@@ -103,7 +111,7 @@ struct
 
   let desc = "Mixed metric."
   let criteria j n i = 
-    List.fold_left2 (fun s weight crit -> s +. (weight *. (crit j n i))) 0. P.alpha rawPolicyList 
+    List.fold_left2 (fun s weight crit -> s +. (weight *. (crit j n i))) 0. P.alpha highDimPolicyList
 end
 
 module MakeThresholdedCriteria (T:ThresholdSig)(O:CriteriaSig)(C:CriteriaSig) : CriteriaSig =

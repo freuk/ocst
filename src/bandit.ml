@@ -158,15 +158,13 @@ module MakeSimulationSelector
       let waitqueue = ref wq
     end
     in let module FeatureMap = Features.MakeSystemFeatures(Pp)
-    in let printer = BatArray.print BatFloat.print
+    in let printer = BatArray.print ~first:"" ~last:"" BatFloat.print
     in BatIO.to_string printer (FeatureMap.makeVector now)
 
   let reorder now l =
       if (!lastTimeId = -1) || ((now / BSP.period) > !lastTimeId) then
         begin
           lastTimeId := now / BSP.period;
-          let fprintclv chan = Printf.fprintf chan "%s" (stringState !lastResourceState !lastWaitQueue (now-BSP.period))
-          in BatOption.may fprintclv BSP.outClv;
           let f t =
             let bh = Events.empty_event_heap ()
             in let fins e = 
@@ -181,11 +179,13 @@ module MakeSimulationSelector
             in let () = Printf.printf "%s" "\n"
             in let r  = getReward !lastWaitQueue !lastResourceState bh p
             in begin
-              let fprintclv chan =  Printf.fprintf chan " %f" r
+              let fprintclv chan =  Printf.fprintf chan "%f " r
               in BatOption.may fprintclv BSP.outClv;
               x +. r, p
             end
           in stats := List.map f !stats;
+          let fprintclv chan = Printf.fprintf chan "%s" (stringState !lastResourceState !lastWaitQueue (now-BSP.period))
+          in BatOption.may fprintclv BSP.outClv;
           let fprintclv chan =  Printf.fprintf chan "%s" "\n"
           in BatOption.may fprintclv BSP.outClv;
           (*lastWaitQueue := !P.waitqueue;*)

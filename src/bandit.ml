@@ -174,6 +174,10 @@ module MakeSimulationSelector
             in let fend (t,i) = Heap.add bh {time=t; id=i; event_type=End}
             in let () = List.iter fend !lastResourceState.jobs_running_list
             in let x,p = t
+            in let () = List.iter (fun x -> Printf.printf "iq %d" x) !lastWaitQueue
+            in let () = Printf.printf "%s" "\n"
+            in let () = Events.Heap.iter (fun x -> Printf.printf "ibh %d" x.id) bh
+            in let () = Printf.printf "%s" "\n"
             in let r  = getReward !lastWaitQueue !lastResourceState bh p
             in begin
               let fprintclv chan =  Printf.fprintf chan " %f" r
@@ -183,7 +187,7 @@ module MakeSimulationSelector
           in stats := List.map f !stats;
           let fprintclv chan =  Printf.fprintf chan "%s" "\n"
           in BatOption.may fprintclv BSP.outClv;
-          lastWaitQueue := !P.waitqueue;
+          (*lastWaitQueue := !P.waitqueue;*)
           lastResourceState := Resources.copy P.resourcestate;
           let fp t = let x,p = t 
             in let module C = (val p:CriteriaSig)

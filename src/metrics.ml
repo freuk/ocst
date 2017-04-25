@@ -120,7 +120,7 @@ let rec combnk k lst =
     in
       inner [] k lst
 
-let highDimPolicyList = List.append rawPolicyList (List.map makeProduct (combnk 2 rawPolicyList))
+let onlyHighDimPolicyList = (List.map makeProduct (combnk 2 rawPolicyList))0
 let mixDim = List.length highDimPolicyList
 
 module MakeMixedMetric(P:ParamMixing)(SP:SystemParamSig) : CriteriaSig =
@@ -134,8 +134,12 @@ struct
     let systemFeatureValues = [float_of_int SP.resourcestate.free] @
         FtUtil.makeStat (List.map snd SP.resourcestate.jobs_running_list) @
         FtUtil.makeStat !SP.waitqueue
-    and jobFeatureValues = List.map (fun crit -> crit j n i) highDimPolicyList
-    in let attributeList = jobFeatureValues @ (List.map (fun (x,y) -> x *. y) (BatList.cartesian_product jobFeatureValues systemFeatureValues))
+    and jobFeatureValues = List.map (fun crit -> crit j n i) onlyHighDimPolicyList
+    and highDimJobFeatureValues = List.map (fun crit -> crit j n i) rawPolicyList
+    in let attributeList = 
+      jobFeatureValues @
+      (List.map (fun (x,y) -> x *. y) (BatList.cartesian_product jobFeatureValues systemFeatureValues)) @
+      (List.map (fun (x,y) -> x *. y) (BatList.cartesian_product highDimJobFeatureValues systemFeatureValues))
     in List.fold_left2 (fun s weight x -> s +. (weight *. x)) 0. P.alpha attributeList
 end
 

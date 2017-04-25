@@ -158,7 +158,7 @@ module MakeSimulationSelector
       let waitqueue = ref wq
     end
     in let module FeatureMap = Features.MakeSystemFeatures(Pp)
-    in let printer = BatArray.print ~first:"" ~last:"" BatFloat.print
+    in let printer = BatArray.print ~first:" " ~last:"" ~sep:" " BatFloat.print
     in BatIO.to_string printer (FeatureMap.makeVector now)
 
   let reorder now l =

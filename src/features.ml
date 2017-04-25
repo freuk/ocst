@@ -33,7 +33,9 @@ module MakeFeatureUtil(P:SystemParamSig) = struct
     List.fold_left (fun acc i -> accessor (Jobs.find P.jobs i) + acc ) 0 jobList
 
   let makeavg accessor jobList =
-    float_of_int (makesum accessor jobList) /. float_of_int (List.length jobList)
+    if List.length jobList = 0 
+    then 0.
+    else float_of_int (makesum accessor jobList) /. float_of_int (List.length jobList)
 
   let makeStat (jobList: int list) =
    List.map float_of_int

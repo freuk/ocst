@@ -116,7 +116,7 @@ module MakeSimulationSelector
   let allReorders = listReorderFunctions BSP.policyList (module P:SystemParamSig)
 
   (**SIMULATION*)
-  let getReward wq rstate bheap policy=
+  let getReward wq (rstate:Resources.system_state) bheap policy=
     begin
      let module SimulatorParam = struct
         let eventheap = bheap
@@ -125,7 +125,7 @@ module MakeSimulationSelector
      end
      in let module SystemParam = struct
         let waitqueue = ref wq
-        let resourcestate = Resources.empty_resources P.resourcestate.maxprocs
+        let resourcestate = Resources.copy rstate
         let jobs = P.jobs
      end
 
@@ -164,12 +164,15 @@ module MakeSimulationSelector
       if (!lastTimeId = -1) || ((now / BSP.period) > !lastTimeId) then
         begin
           lastTimeId := now / BSP.period;
-          let fprintclv chan = Printf.fprintf chan "%s" (stringState !lastResourceState !lastWaitQueue now)
+          let fprintclv chan = Printf.fprintf chan "%s" (stringState !lastResourceState !lastWaitQueue (now-BSP.period))
           in BatOption.may fprintclv BSP.outClv;
           let f t =
             let bh = Events.empty_event_heap ()
-            in let fins e = Events.submit_job e.id (Jobs.find P.jobs e.id).r bh
+            in let fins e = 
+                Events.submit_job e.id ((Jobs.find P.jobs e.id).r) bh
             in let () = Events.Heap.iter fins BSP.jobHeap 
+            in let fend (t,i) = Heap.add bh {time=t; id=i; event_type=End}
+            in let () = List.iter fend !lastResourceState.jobs_running_list
             in let x,p = t
             in let r  = getReward !lastWaitQueue !lastResourceState bh p
             in begin

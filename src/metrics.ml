@@ -99,8 +99,28 @@ let rawPolicyList = [CriteriaSPF.criteria;
                      CriteriaSQF.criteria;
                      CriteriaWait.criteria]
 let zeroMixed = List.map (fun _ -> 0.) rawPolicyList
-let makeProduct cp x y z = let c1, c2 = cp in (c1 x y z) *. (c2 x y z)
-let highDimPolicyList = List.append rawPolicyList (List.map makeProduct (BatList.cartesian_product rawPolicyList rawPolicyList))
+let makeProduct cl x y z = ((List.hd cl) x y z) *. ((List.nth cl 1) x y z)
+
+(*off https://codereview.stackexchange.com/questions/40366/combinations-of-size-k-from-a-list-in-ocaml*)
+let rec combnk k lst =
+  let rec inner acc k lst =
+    match k with
+    | 0 -> [[]]
+    | _ ->
+      match lst with
+      | []      -> acc
+      | x :: xs ->
+        let rec accmap acc f = function
+          | []      -> acc
+          | x :: xs -> accmap ((f x) :: acc) f xs
+        in
+          let newacc = accmap acc (fun z -> x :: z) (inner [] (k - 1) xs)
+          in
+            inner newacc k xs
+    in
+      inner [] k lst
+
+let highDimPolicyList = List.append rawPolicyList (List.map makeProduct (combnk 2 rawPolicyList))
 let mixDim = List.length highDimPolicyList
 
 module MakeMixedMetric(P:ParamMixing)(SP:SystemParamSig) : CriteriaSig =

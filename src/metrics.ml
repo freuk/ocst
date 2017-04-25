@@ -100,6 +100,7 @@ let rawPolicyList = [CriteriaSPF.criteria;
                      CriteriaWait.criteria]
 let zeroMixed = List.map (fun _ -> 0.) rawPolicyList
 let makeProduct cl x y z = ((List.hd cl) x y z) *. ((List.nth cl 1) x y z)
+let makeSquare c = makeProduct [c;c]
 
 (*off https://codereview.stackexchange.com/questions/40366/combinations-of-size-k-from-a-list-in-ocaml*)
 let rec combnk k lst =
@@ -120,24 +121,41 @@ let rec combnk k lst =
     in
       inner [] k lst
 
-let onlyHighDimPolicyList = (List.map makeProduct (combnk 2 rawPolicyList))
-let mixDim = (List.length onlyHighDimPolicyList) + (List.length rawPolicyList)
+let onlyHighDimPolicyList = 
+  (List.map makeProduct (combnk 2 rawPolicyList)) @
+  (List.map makeSquare rawPolicyList )
+
+let baseDim = List.length rawPolicyList
+let combDim = List.length onlyHighDimPolicyList
 
 module MakeMixedMetric(P:ParamMixing)(SP:SystemParamSig) : CriteriaSig =
 struct
 
-  assert (List.length P.alpha = (mixDim + ( mixDim * 17 )) )
   module  FtUtil = Features.MakeFeatureUtil(SP)
+
+  let makeSystemFeatureValues () = [float_of_int SP.resourcestate.free] @
+      FtUtil.makeStat (List.map snd SP.resourcestate.jobs_running_list) @
+      FtUtil.makeStat !SP.waitqueue
+
+  let () = 
+   let systemDim = List.length (makeSystemFeatureValues ())
+   in let expected = baseDim+combDim + systemDim * (baseDim+combDim)
+      and real = List.length P.alpha
+   in if (not (real = expected)) then
+     begin
+       Printf.printf "real vector size %d, expected %d;\n" real expected;
+       Printf.printf "baseDim %d combDim %d systemDim %d\n" baseDim combDim systemDim;
+       assert (real=expected)
+     end
 
   let desc = "Mixed metric."
   let criteria j n i = 
-    let systemFeatureValues = [float_of_int SP.resourcestate.free] @
-        FtUtil.makeStat (List.map snd SP.resourcestate.jobs_running_list) @
-        FtUtil.makeStat !SP.waitqueue
-    and jobFeatureValues = List.map (fun crit -> crit j n i) onlyHighDimPolicyList
-    and highDimJobFeatureValues = List.map (fun crit -> crit j n i) rawPolicyList
+    let jobFeatureValues = List.map (fun crit -> crit j n i) rawPolicyList
+    and highDimJobFeatureValues = List.map (fun crit -> crit j n i) onlyHighDimPolicyList
+    and systemFeatureValues = makeSystemFeatureValues ()
     in let attributeList = 
       jobFeatureValues @
+      highDimJobFeatureValues @
       (List.map (fun (x,y) -> x *. y) (BatList.cartesian_product jobFeatureValues systemFeatureValues)) @
       (List.map (fun (x,y) -> x *. y) (BatList.cartesian_product highDimJobFeatureValues systemFeatureValues))
     in List.fold_left2 (fun s weight x -> s +. (weight *. x)) 0. P.alpha attributeList

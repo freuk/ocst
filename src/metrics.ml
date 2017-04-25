@@ -120,8 +120,8 @@ let rec combnk k lst =
     in
       inner [] k lst
 
-let onlyHighDimPolicyList = (List.map makeProduct (combnk 2 rawPolicyList))0
-let mixDim = List.length highDimPolicyList
+let onlyHighDimPolicyList = (List.map makeProduct (combnk 2 rawPolicyList))
+let mixDim = (List.length onlyHighDimPolicyList) + (List.length rawPolicyList)
 
 module MakeMixedMetric(P:ParamMixing)(SP:SystemParamSig) : CriteriaSig =
 struct

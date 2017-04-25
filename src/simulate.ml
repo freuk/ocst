@@ -1,4 +1,5 @@
 open Events
+open System
 open Easy
 open Resources
 open Metrics
@@ -143,9 +144,9 @@ let mixed copts alpha backfill objective threshold mixType=
      let alpha = alpha
    end
 
-   in let module CritReserve = MakeThresholdedCriteria(T)(O)(MakeMixedMetric(MixParam))
    in let  module CritBackfill = MakeThresholdedCriteria(T)(O)((val backfill:CriteriaSig))
    in let module SP = (val systemmodule : SystemParamSig)
+   in let module CritReserve = MakeThresholdedCriteria(T)(O)(MakeMixedMetric(MixParam)(SP))
    in (module MakeEasyGreedy(CritReserve)(CritBackfill)(SP):SchedulerSig)
 
    (*in match mixType with*)

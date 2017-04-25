@@ -2,16 +2,10 @@ open Metrics
 open Jobs
 open Events
 open Resources
+open System
 
 module type SchedulerSig = sig
   val schedule : int -> int list
-end
-
-(*mutable references to system datastructures*)
-module type SystemParamSig  =sig
-  val jobs : job_table
-  val resourcestate : system_state
-  val waitqueue : wait_queue
 end
 
 (*Job selector for easy algoritmm.*)

@@ -1,4 +1,5 @@
 open Jobs
+open System
 
 module type JobTableParamSig = sig
   open Jobs
@@ -96,22 +97,26 @@ end
 
 let rawPolicyList = [CriteriaSPF.criteria;
                      CriteriaSQF.criteria;
-                     CriteriaWait.criteria;
-                     CriteriaSRF.criteria;
-                     CriteriaSRwF.criteria;]
+                     CriteriaWait.criteria]
 let zeroMixed = List.map (fun _ -> 0.) rawPolicyList
 let makeProduct cp x y z = let c1, c2 = cp in (c1 x y z) *. (c2 x y z)
 let highDimPolicyList = List.append rawPolicyList (List.map makeProduct (BatList.cartesian_product rawPolicyList rawPolicyList))
 let mixDim = List.length highDimPolicyList
 
-module MakeMixedMetric(P:ParamMixing) : CriteriaSig =
+module MakeMixedMetric(P:ParamMixing)(SP:SystemParamSig) : CriteriaSig =
 struct
 
-  assert (List.length P.alpha = mixDim)
+  assert (List.length P.alpha = (mixDim + ( mixDim * 17 )) )
+  module  FtUtil = Features.MakeFeatureUtil(SP)
 
   let desc = "Mixed metric."
   let criteria j n i = 
-    List.fold_left2 (fun s weight crit -> s +. (weight *. (crit j n i))) 0. P.alpha highDimPolicyList
+    let systemFeatureValues = [float_of_int SP.resourcestate.free] @
+        FtUtil.makeStat (List.map snd SP.resourcestate.jobs_running_list) @
+        FtUtil.makeStat !SP.waitqueue
+    and jobFeatureValues = List.map (fun crit -> crit j n i) highDimPolicyList
+    in let attributeList = jobFeatureValues @ (List.map (fun (x,y) -> x *. y) (BatList.cartesian_product jobFeatureValues systemFeatureValues))
+    in List.fold_left2 (fun s weight x -> s +. (weight *. x)) 0. P.alpha attributeList
 end
 
 module MakeThresholdedCriteria (T:ThresholdSig)(O:CriteriaSig)(C:CriteriaSig) : CriteriaSig =

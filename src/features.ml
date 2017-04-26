@@ -39,9 +39,7 @@ module MakeFeatureUtil(P:SystemParamSig) = struct
 
   let makeStat (jobList: int list) =
    List.map float_of_int
-   (makemm (fun x -> x.q) jobList @
-   makemm (fun x -> x.p_est) jobList @
-   [List.length jobList;
+   ( [List.length jobList;
     makesum (fun x -> x.q) jobList;
     makesum (fun x -> x.p_est) jobList;
     List.fold_left (fun acc i -> ((Jobs.find P.jobs i).q * (Jobs.find P.jobs i).p_est) +acc) 0 jobList])

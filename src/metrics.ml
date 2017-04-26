@@ -97,7 +97,10 @@ end
 
 let rawPolicyList = [CriteriaSPF.criteria;
                      CriteriaSQF.criteria;
-                     CriteriaWait.criteria]
+                     CriteriaWait.criteria;
+                     CriteriaLRF.criteria;
+                     CriteriaLAF.criteria;
+                     CriteriaExpFact.criteria]
 let zeroMixed = List.map (fun _ -> 0.) rawPolicyList
 let makeProduct cl x y z = ((List.hd cl) x y z) *. ((List.nth cl 1) x y z)
 let makeSquare c = makeProduct [c;c]

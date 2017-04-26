@@ -121,12 +121,7 @@ let rec combnk k lst =
     in
       inner [] k lst
 
-let onlyHighDimPolicyList = 
-  (List.map makeProduct (combnk 2 rawPolicyList)) @
-  (List.map makeSquare rawPolicyList )
-
 let baseDim = List.length rawPolicyList
-let combDim = List.length onlyHighDimPolicyList
 
 module MakeMixedMetric(P:ParamMixing)(SP:SystemParamSig) : CriteriaSig =
 struct
@@ -134,30 +129,26 @@ struct
   module  FtUtil = Features.MakeFeatureUtil(SP)
 
   let makeSystemFeatureValues () = [float_of_int SP.resourcestate.free] @
-      FtUtil.makeStat (List.map snd SP.resourcestate.jobs_running_list) @
       FtUtil.makeStat !SP.waitqueue
 
   let () = 
    let systemDim = List.length (makeSystemFeatureValues ())
-   in let expected = baseDim+combDim + systemDim * (baseDim+combDim)
+   in let expected = baseDim + systemDim * baseDim
       and real = List.length P.alpha
    in if (not (real = expected)) then
      begin
        Printf.printf "real vector size %d, expected %d;\n" real expected;
-       Printf.printf "baseDim %d combDim %d systemDim %d\n" baseDim combDim systemDim;
+       Printf.printf "baseDim %d systemDim %d\n" baseDim systemDim;
        assert (real=expected)
      end
 
   let desc = "Mixed metric."
   let criteria j n i = 
     let jobFeatureValues = List.map (fun crit -> crit j n i) rawPolicyList
-    and highDimJobFeatureValues = List.map (fun crit -> crit j n i) onlyHighDimPolicyList
     and systemFeatureValues = makeSystemFeatureValues ()
     in let attributeList = 
       jobFeatureValues @
-      highDimJobFeatureValues @
-      (List.map (fun (x,y) -> x *. y) (BatList.cartesian_product jobFeatureValues systemFeatureValues)) @
-      (List.map (fun (x,y) -> x *. y) (BatList.cartesian_product highDimJobFeatureValues systemFeatureValues))
+      (List.map (fun (x,y) -> x *. y) (BatList.cartesian_product jobFeatureValues systemFeatureValues)) 
     in List.fold_left2 (fun s weight x -> s +. (weight *. x)) 0. P.alpha attributeList
 end
 

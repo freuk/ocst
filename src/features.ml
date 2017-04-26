@@ -45,11 +45,7 @@ module MakeFeatureUtil(P:SystemParamSig) = struct
     makesum (fun x -> x.q) jobList;
     makesum (fun x -> x.p_est) jobList;
     List.fold_left (fun acc i -> ((Jobs.find P.jobs i).q * (Jobs.find P.jobs i).p_est) +acc) 0 jobList])
-   @[
-    makeavg (fun x -> x.q) jobList;
-    makeavg (fun x -> x.p_est) jobList;
-   ]
-end
+   end
 
 (**Basic job features*)
 module MakeJobFeatures

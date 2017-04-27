@@ -1,40 +1,46 @@
 open Jobs
 
-type event_type = Submit | End
+type eventType = Submit | Finish
 
-type event = { time: int;
-               id: int ;
-               event_type: event_type }
+type event = { time : int;
+               id : int ;
+               eventType : eventType }
 
-module Heap = Binary_heap.Make( struct
-                                  type t = event
-                                  let compare e1 e2 = - compare e1.time e2.time
-                                end )
+module Heap = BatHeap.Make( struct
+                              type t = event
+                              let compare e1 e2 = compare e1.time e2.time
+                            end )
 
-type event_heap = Heap.t
+(*apply a function to all events.*)
+let iterevents h = List.iter (Heap.to_list h)
 
-let empty_event_heap () = Heap.create 1000
+(*start a job at a given time and return a new event heap*)
+let start_job jobTable time jobId h =
+  let j = Jobs.find jobTable jobId
+  in Heap.add h {time=time+j.p; id=jobId; eventType=Finish}
 
-let is_empty eventheap = Heap.is_empty eventheap
+(*submit a job and return a new event heap*)
+let submit_job jobTable jobId h =
+  let j = Jobs.find jobTable jobId
+            Heap.add h {time=j.r; id=jobId; eventType=Submit}
 
-let iterevents = Heap.iter
+(* this type encodes the new heap, the time, and the unloaded job list, if simulation
+ * has to continue.*)
+type unloadedEvents = Events of (Heap.t * int * ) | EndSimulation
 
-let pop_event eventheap =
-  Heap.pop_maximum eventheap
-
-let peek_next_time eventheap =
-  (Heap.maximum eventheap).time
-
-let is_next_event_at_time now eventheap =
-  (not (is_empty eventheap))
-  &&
-  peek_next_time eventheap == now
-
-let start_job jobs now id eventheap =
-  let j= find jobs id in
-  Heap.add
-  eventheap
-  {time=now+j.p; id=id; event_type=End}
-
-let submit_job id time eventheap =
-  Heap.add eventheap {time=time; id=id; event_type=Submit}
+(*unloadEvents gets the next event and all the events at that time.*)
+let unloadEvents h =
+  in if (Events.Heap.size h = 0) then
+    EndSimulation
+  else
+    let firstEvent = Heap.find_min h
+    in let getEvent h eventList =
+      if (Events.Heap.size h = 0) then
+        Events (h, time, eventList)
+      else
+        let e = Heap.find_min h
+        in if e.time > firstEvent.time then
+          Events (h, time, eventList)
+        else
+          getEvent (Heap.del_min h) (e::eventList)
+    in getEvent (Heap.del_min h) [e]

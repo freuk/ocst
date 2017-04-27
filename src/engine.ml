@@ -1,4 +1,3 @@
-open Events
 open System
 open Easy
 open Jobs
@@ -7,7 +6,7 @@ open Resources
 open Binary_heap
 
 module type SimulatorParamSig = sig
-  val eventheap : event_heap
+  val eventheap : ref Events.Heap.t
   val output_channel : out_channel option
   val output_channel_bf : out_channel option
 end
@@ -46,16 +45,6 @@ with type outputStat = St.outputStat
 = struct
   type outputStat = St.outputStat
 
-  let execute_unload_events () =
-    begin
-      let e = pop_event P.eventheap
-      in let event_list = ref [e]
-      in while is_next_event_at_time e.time P.eventheap do
-        event_list := !event_list@[pop_event P.eventheap]
-      done;
-      e.time, !event_list
-    end
-
   let execute_events =
     let execute_event event =
       match event.event_type with
@@ -74,9 +63,11 @@ with type outputStat = St.outputStat
     in List.iter execute_order
 
   let simulate () =
-    while not (Events.is_empty P.eventheap) do
-        let now,event_list = execute_unload_events ()
-        in begin
+    let step h = 
+      match Events.unloadEvents () with 
+        | Events.EndSimulation -> Ok Events.EndSimulation
+        | Events.Events h,now,event_list ->
+        begin
           execute_events event_list;
           let decisions= Sch.schedule now
           in
@@ -92,5 +83,4 @@ with type outputStat = St.outputStat
               end
             ) P.output_channel_bf 
         end
-    done
 end

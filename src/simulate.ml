@@ -3,7 +3,6 @@ open System
 open Easy
 open Resources
 open Metrics
-open Jobs
 open Engine
 open Bandit
 
@@ -45,9 +44,8 @@ let simulator_boilerplate modulemaker copts = begin
  in try
    let module SimulatorParam = struct
       let eventheap =
-       let h = empty_event_heap ()
-       in let () = iter (fun id j -> submit_job id j.r h) job_table
-       in h
+        let f i j h  = Events.Heap.add h {time=j.r; id=i; eventType=Submit}.
+        in Hashtbl.fold f job_table (Events.Heap.empty ())
       let output_channel = oc
       let output_channel_bf = ocb
    end
@@ -232,106 +230,106 @@ let randomBandit copts period backfill threshold policies=
   end
   in simulator_boilerplate getmodule copts
 
-let bandit copts explo rewardType period backfill threshold policies reset_out clv noisy select_out clvOut=
-  begin
-   let module CritBackfill = (val backfill:CriteriaSig)
+(*let bandit copts explo rewardType period backfill threshold policies reset_out clv noisy select_out clvOut=*)
+  (*begin*)
+   (*let module CritBackfill = (val backfill:CriteriaSig)*)
 
-   in let () = if copts.debug then
-   begin
-     Printf.printf "Running the SARSA scheduler on input workload %s using backfiller %s.\n" copts.swf_in (CritBackfill.desc);
-     BatOption.may (fun x-> Printf.printf "Writing result on output file %s\n" x) copts.swf_out;
-     BatOption.may (fun x-> Printf.printf "Writing backfill data on output file %s\n" x) copts.backfill_out
-   end;
+   (*in let () = if copts.debug then*)
+   (*begin*)
+     (*Printf.printf "Running the SARSA scheduler on input workload %s using backfiller %s.\n" copts.swf_in (CritBackfill.desc);*)
+     (*BatOption.may (fun x-> Printf.printf "Writing result on output file %s\n" x) copts.swf_out;*)
+     (*BatOption.may (fun x-> Printf.printf "Writing backfill data on output file %s\n" x) copts.backfill_out*)
+   (*end;*)
 
-   in let job_table,maxprocs = Io.parse_jobs copts.swf_in
+   (*in let job_table,maxprocs = Io.parse_jobs copts.swf_in*)
 
-   in let oc,ocb,ocr,ocs,occ = 
-     begin
-       if copts.debug then Printf.printf "%s \n" "Opening channels..";
-       let oc = BatOption.map open_out copts.swf_out
-       and ocb =  BatOption.map open_out copts.backfill_out
-       and ocr =  BatOption.map open_out reset_out 
-       and ocs =  BatOption.map open_out select_out 
-       and occ =  BatOption.map open_out clvOut
-       in (if copts.debug then Printf.printf "%s \n" "Done"; oc,ocb,ocr,ocs,occ)
-     end
+   (*in let oc,ocb,ocr,ocs,occ = *)
+     (*begin*)
+       (*if copts.debug then Printf.printf "%s \n" "Opening channels..";*)
+       (*let oc = BatOption.map open_out copts.swf_out*)
+       (*and ocb =  BatOption.map open_out copts.backfill_out*)
+       (*and ocr =  BatOption.map open_out reset_out *)
+       (*and ocs =  BatOption.map open_out select_out *)
+       (*and occ =  BatOption.map open_out clvOut*)
+       (*in (if copts.debug then Printf.printf "%s \n" "Done"; oc,ocb,ocr,ocs,occ)*)
+     (*end*)
 
-   in try
-     let module SimulatorParam = struct
-        let eventheap =
-         let h = empty_event_heap ()
-         in let () = iter (fun id j -> submit_job id j.r h) job_table
-         in h
-        let output_channel = oc
-        let output_channel_bf = ocb
-     end
+   (*in try*)
+     (*let module SimulatorParam = struct*)
+        (*let eventheap =*)
+         (*let h = empty_event_heap ()*)
+         (*in let () = iter (fun id j -> submit_job id j.r h) job_table*)
+         (*in h*)
+        (*let output_channel = oc*)
+        (*let output_channel_bf = ocb*)
+     (*end*)
 
-     in let module SystemParam = struct
-        let waitqueue = empty_job_waiting_queue ()
-        let resourcestate = empty_resources (max !maxprocs copts.maxprocs)
-        let jobs = job_table
-     end
+     (*in let module SystemParam = struct*)
+        (*let waitqueue = empty_job_waiting_queue ()*)
+        (*let resourcestate = empty_resources (max !maxprocs copts.maxprocs)*)
+        (*let jobs = job_table*)
+     (*end*)
 
-     in let bheap = empty_event_heap ()
+     (*in let bheap = empty_event_heap ()*)
 
-     in let module StatWait : StatSig
-     with type outputStat=float
-     = struct
-       type outputStat = float
-       module M = MakeWaitAccumulator(SystemParam)
-       let n = ref 0
-       let getN () = !n
-       let getStat = M.get
-       let incStat t jl = begin
-         M.add t jl;
-         List.iter (fun i -> Events.submit_job i (Jobs.find job_table i).r bheap) jl;
-         n:=!n+(List.length jl)
-       end
-       let reset () =  (n := 0; M.reset() )
-     end
+     (*in let module StatWait : StatSig*)
+     (*with type outputStat=float*)
+     (*= struct*)
+       (*type outputStat = float*)
+       (*module M = MakeWaitAccumulator(SystemParam)*)
+       (*let n = ref 0*)
+       (*let getN () = !n*)
+       (*let getStat = M.get*)
+       (*let incStat t jl = begin*)
+         (*M.add t jl;*)
+         (*List.iter (fun i -> Events.submit_job i (Jobs.find job_table i).r bheap) jl;*)
+         (*n:=!n+(List.length jl)*)
+       (*end*)
+       (*let reset () =  (n := 0; M.reset() )*)
+     (*end*)
 
-     in let cr = if clv then
-       let module BSP = struct
-         let period = period
-         let jobHeap = bheap
-         let policyList = List.map (threshold_wait_criteria threshold) policies
-         let out_select = ocs
-         let noise = noisy
-         let outClv = occ
-       end
-       in (module MakeSimulationSelector(BSP)(StatWait)(SystemParam):ReservationSelector)
-     else 
-       let module BSP = struct
-         let rate = explo
-         let rewardType = rewardType
-         let period = period
-         let jobHeap = bheap
-         let policyList = List.map (threshold_wait_criteria threshold) policies
-         let out_reset = ocr
-         let out_select = ocs
-       end
-       (*in let module B = (val (bandit_module (List.length BSP.policyList) explo algo):RangedBandit)*)
-       in (module MakeBanditSelector(BSP)(StatWait)(SystemParam):ReservationSelector)
+     (*in let cr = if clv then*)
+       (*let module BSP = struct*)
+         (*let period = period*)
+         (*let jobHeap = bheap*)
+         (*let policyList = List.map (threshold_wait_criteria threshold) policies*)
+         (*let out_select = ocs*)
+         (*let noise = noisy*)
+         (*let outClv = occ*)
+       (*end*)
+       (*in (module MakeSimulationSelector(BSP)(StatWait)(SystemParam):ReservationSelector)*)
+     (*else *)
+       (*let module BSP = struct*)
+         (*let rate = explo*)
+         (*let rewardType = rewardType*)
+         (*let period = period*)
+         (*let jobHeap = bheap*)
+         (*let policyList = List.map (threshold_wait_criteria threshold) policies*)
+         (*let out_reset = ocr*)
+         (*let out_select = ocs*)
+       (*end*)
+       (*[>in let module B = (val (bandit_module (List.length BSP.policyList) explo algo):RangedBandit)<]*)
+       (*in (module MakeBanditSelector(BSP)(StatWait)(SystemParam):ReservationSelector)*)
 
-     in let module Scheduler = MakeEasyScheduler((val cr:ReservationSelector))(MakeGreedySelector(CritBackfill)(SystemParam))(SystemParam)
+     (*in let module Scheduler = MakeEasyScheduler((val cr:ReservationSelector))(MakeGreedySelector(CritBackfill)(SystemParam))(SystemParam)*)
 
-     in let module S = MakeSimulator(StatWait)(Scheduler)(SimulatorParam)(SystemParam)(NoHook)
+     (*in let module S = MakeSimulator(StatWait)(Scheduler)(SimulatorParam)(SystemParam)(NoHook)*)
 
-     in if copts.debug then
-       (timesched S.simulate () ;
-       Printf.printf "avgwait %f \n" (StatWait.getStat () /. float_of_int (StatWait.getN ())))
-     else
-       S.simulate ();
+     (*in if copts.debug then*)
+       (*(timesched S.simulate () ;*)
+       (*Printf.printf "avgwait %f \n" (StatWait.getStat () /. float_of_int (StatWait.getN ())))*)
+     (*else*)
+       (*S.simulate ();*)
 
-     if copts.debug then Printf.printf "%s \n" "Closing channels..";
-     BatOption.may close_out oc;
-     BatOption.may close_out ocb;
-     if copts.debug then Printf.printf "%s \n" "Done"
-   with e ->
-     begin
-       BatOption.may close_out_noerr oc;
-       BatOption.may close_out_noerr ocb;
-       BatOption.may close_out_noerr occ;
-       raise e;
-     end
-  end
+     (*if copts.debug then Printf.printf "%s \n" "Closing channels..";*)
+     (*BatOption.may close_out oc;*)
+     (*BatOption.may close_out ocb;*)
+     (*if copts.debug then Printf.printf "%s \n" "Done"*)
+   (*with e ->*)
+     (*begin*)
+       (*BatOption.may close_out_noerr oc;*)
+       (*BatOption.may close_out_noerr ocb;*)
+       (*BatOption.may close_out_noerr occ;*)
+       (*raise e;*)
+     (*end*)
+  (*end*)

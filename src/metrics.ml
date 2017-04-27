@@ -134,25 +134,31 @@ struct
   let makeSystemFeatureValues () = [float_of_int SP.resourcestate.free] @
       FtUtil.makeStat !SP.waitqueue
 
+  let systemDim = List.length (makeSystemFeatureValues ())
+  let attributeDim =  baseDim + systemDim * baseDim
+
   let () = 
-   let systemDim = List.length (makeSystemFeatureValues ())
-   in let expected = baseDim + systemDim * baseDim
-      and real = List.length P.alpha
-   in if (not (real = expected)) then
-     begin
-       Printf.printf "real vector size %d, expected %d;\n" real expected;
-       Printf.printf "baseDim %d systemDim %d\n" baseDim systemDim;
-       assert (real=expected)
-     end
+    let real = List.length P.alpha
+    in if (not (real = attributeDim)) then
+    begin
+      Printf.printf "real vector size %d, expected %d;\n" real attributeDim;
+      Printf.printf "baseDim %d systemDim %d\n" baseDim systemDim;
+      failwith "alpha dim error." 
+    end
 
   let desc = "Mixed metric."
+  let scales = ref (BatList.make attributeDim 0.)
+  let updateScales xl = scales := BatList.map2 (fun s x -> if (abs_float x) > s then x else s) !scales xl
+  let scale x = List.map2 (fun s x-> if s>0. then x /. s else 0.) !scales x
+
   let criteria j n i = 
     let jobFeatureValues = List.map (fun crit -> crit j n i) rawPolicyList
     and systemFeatureValues = makeSystemFeatureValues ()
     in let attributeList = 
       jobFeatureValues @
       (List.map (fun (x,y) -> x *. y) (BatList.cartesian_product jobFeatureValues systemFeatureValues)) 
-    in List.fold_left2 (fun s weight x -> s +. (weight *. x)) 0. P.alpha attributeList
+    in let () = updateScales attributeList
+    in List.fold_left2 (fun s weight x -> s +. (weight *. x)) 0. P.alpha (scale attributeList)
 end
 
 module MakeThresholdedCriteria (T:ThresholdSig)(O:CriteriaSig)(C:CriteriaSig) : CriteriaSig =

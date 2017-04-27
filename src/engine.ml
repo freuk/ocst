@@ -1,10 +1,4 @@
-open System
 open Easy
-open Jobs
-open Io
-open Resources
-
-
 (************************************** Jobs *************************************)
 type job = { r:int; p:int; p_est:int; q:int} (*job data*)
 type jobTable = (int,job) Hashtbl.t          (*id-indexed table*)

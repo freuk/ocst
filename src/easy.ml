@@ -1,27 +1,26 @@
-open Metrics
-
 (***************************Primary and backfilling selectors***********************)
 
 (**** Primary Selector ****)
 module type Primary = sig
   val reorder :
-    now:int ->                      (*now*)
     Engine.system ->                (*system state before primary jobs are started*)
+    now:int ->                      (*now*)
     int list
 end
 
 module MakeGreedyPrimary
-  (P:SchedulerParam)
-  (C:Criteria)
+  (C:Metrics.Criteria)
   : Primary =
 struct
-  let comp now i1 i2 = compare (C.criteria P.jobs now i2) (C.criteria P.jobs now i1)
-  let reorder now = List.sort (comp now)
+  let reorder s now =
+    let comp i1 i2 = compare (C.criteria s now i2) (C.criteria s now i1)
+    in List.sort comp
 end
 
 (**** Backfilling Selector ****)
 module type Secondary = sig
   val selector :
+    system:system ->                (*full state of the system*)
     now:int ->                      (*now*)
     backfillable:int list ->        (*backfillable jobs*)
     reservationT:int ->             (*time of the reservation*)
@@ -31,19 +30,23 @@ module type Secondary = sig
 end
 
 module MakeGreedySecondary
-  (C:Criteria)
-  (P:SchedulerParam)
+  (C:Metrics.Criteria)
   : Secondary =
 struct
-  let selector (now:int) (bfable:int list) (restime:int ) resjob resres =
-    let id = List.hd bfable
-    in let rec argmax v ip = function
-      |i::is when v <= (C.criteria P.jobs now i) -> argmax (C.criteria P.jobs now i) i is
+  let selector
+        ~system:s
+        ~now:now
+        ~backfillable:bfable
+        ~reservationT:restime
+        ~reservationID:resjob
+        ~reservationFree:resres =
+    let rec argmax v ip = function
+      |i::is when v <= (C.criteria s now i) -> argmax (C.criteria s now i) i is
       |i::is -> argmax v ip is
       |[] -> ip
-    in argmax (C.criteria P.jobs now id) id bfable
+    and id = List.hd bfable
+    in argmax (C.criteria s now id) id bfable
 end
-
 
 (************************************ Scheduler ***************************************)
 
@@ -78,17 +81,17 @@ module MakeEasyScheduler
        let reserve now free id running decision=
          let job = find P.jobs id
          in let make_projected_end i = (now + (find P.jobs i).p_est ,i)
-         in let projected_end_list = running @ (List.map make_projected_end decision)
-         in let sorted_projected_end_list = List.sort (fun (t,_) (t',_) -> compare t t') projected_end_list
+         in let projectedEndList = List.map make_projected_end ((List.map snd running) @ decision)
+         in let sortedProjectedEndList = List.sort (fun (t,_) (t',_) -> compare t t') projectedEndList
          in let rec fits f l = match l with
            | [] -> failwith "Internal error: resource usage data inconsistent."
            | (t,i)::_ when f+(find P.jobs i).q >= job.q -> (t-now, f+(find P.jobs i).q-job.q)
            | (t,i)::tis -> fits (f+(find P.jobs i).q) tis
-         in fits free sorted_projected_end_list
+         in fits free sortedProjectedEndList
 
        let schedule now s =
          assert (free >= 0);
-         match get_easy s.free (Primary.reorder now s) with
+         match get_easy s.free (Primary.reorder s now) with
            | decision , _        , None     , _    ->  decision
            | decision , _        , sid      , []   ->  decision
            | decision , free'    , Some id  , rest ->

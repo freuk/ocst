@@ -30,9 +30,9 @@ let copts_t =
   in let seed =
     let doc = "Random seed value." in
     Arg.(value & opt int 0 & info ["seed"] ~docv:"SEED" ~docs ~doc)
-  in let maxprocs =
-    let doc = "Enforce maxprocs value." in
-    Arg.(value & opt int 0 & info ["maxprocs"] ~docv:"MAXPROCS" ~docs ~doc)
+  in let maxProcs =
+    let doc = "Enforce maxProcs value." in
+    Arg.(value & opt int 0 & info ["maxProcs"] ~docv:"MAXPROCS" ~docs ~doc)
   in
   let swf_out =
     let doc = "Specify output swf file." in
@@ -45,7 +45,7 @@ let copts_t =
   let swf_in =
     let doc = "Input swf file." in
     Arg.(required & pos 0 (some file) None & info [] ~docv:"SWFINPUT" ~doc)
-  in Term.(const copts $ swf_in $ swf_out $ backfill_out $ maxprocs $ debug $ seed)
+  in Term.(const copts $ swf_in $ swf_out $ backfill_out $ maxProcs $ debug $ seed)
 
 let help_cmd =
   let topic =
@@ -61,57 +61,57 @@ let help_cmd =
           (const help $ Term.man_format $ Term.choice_names $topic)),
   Term.info "help" ~doc ~man
 
-let mixed_cmd =
-  let docs = copts_sect
-  in let backfill =
-    let doc = "Backfilling policy." in
-    Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "wait" Metrics.criteriaList) & info ["backfill"] ~docv:"BACKFILL" ~doc)
-  in let objective =
-    let doc = "Objective for thresholding." in
-    Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "wait" Metrics.criteriaList) & info ["th_objective"] ~docv:"TOBJECTIVE" ~doc)
-  in let threshold =
-    let doc = "Threshold value." in
-    Arg.(value & opt float 10000. & info ["threshold"] ~docv:"THRESHOLD" ~doc)
-  in let alpha =
-    let doc = "Mixing parameter." in
-    Arg.(value & opt (list ~sep:',' float) Metrics.zeroMixed & info ["alpha"] ~docv:"ALPHA" ~doc)
-  in let mixingtype =
-    let doc = "Mixing type." in
-    Arg.(value & opt (enum Simulate.mixingList) (BatList.assoc "prob" Simulate.mixingList) & info ["mixtype"] ~docv:"MIXTYPE" ~doc)
-  in
-  let doc = "Simulate a EASY-backfilling scheduler with a mixed primary heuristic and a fixed BF heuristic, using thresholding on a main
-  objective. The mixing is done using (1-alpha)*c1 + alpha*c2 where c1 and c2 are the two initial criterias" in
-  let man =
-    [`S "DESCRIPTION";
-     `P doc] @ help_secs
-  in
-  Term.(const Simulate.mixed$ copts_t $ alpha $ backfill $ objective $ threshold $ mixingtype),
-  Term.info "mixed" ~doc ~sdocs:docs ~man
+(*let mixed_cmd =*)
+  (*let docs = copts_sect*)
+  (*in let backfill =*)
+    (*let doc = "Backfilling policy." in*)
+    (*Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "wait" Metrics.criteriaList) & info ["backfill"] ~docv:"BACKFILL" ~doc)*)
+  (*in let objective =*)
+    (*let doc = "Objective for thresholding." in*)
+    (*Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "wait" Metrics.criteriaList) & info ["th_objective"] ~docv:"TOBJECTIVE" ~doc)*)
+  (*in let threshold =*)
+    (*let doc = "Threshold value." in*)
+    (*Arg.(value & opt float 10000. & info ["threshold"] ~docv:"THRESHOLD" ~doc)*)
+  (*in let alpha =*)
+    (*let doc = "Mixing parameter." in*)
+    (*Arg.(value & opt (list ~sep:',' float) Metrics.zeroMixed & info ["alpha"] ~docv:"ALPHA" ~doc)*)
+  (*in let mixingtype =*)
+    (*let doc = "Mixing type." in*)
+    (*Arg.(value & opt (enum Simulate.mixingList) (BatList.assoc "prob" Simulate.mixingList) & info ["mixtype"] ~docv:"MIXTYPE" ~doc)*)
+  (*in*)
+  (*let doc = "Simulate a EASY-backfilling scheduler with a mixed primary heuristic and a fixed BF heuristic, using thresholding on a main*)
+  (*objective. The mixing is done using (1-alpha)*c1 + alpha*c2 where c1 and c2 are the two initial criterias" in*)
+  (*let man =*)
+    (*[`S "DESCRIPTION";*)
+     (*`P doc] @ help_secs*)
+  (*in*)
+  (*Term.(const Simulate.mixed$ copts_t $ alpha $ backfill $ objective $ threshold $ mixingtype),*)
+  (*Term.info "mixed" ~doc ~sdocs:docs ~man*)
 
 
-let threshold_cmd =
-  let docs = copts_sect
-  in let reservation =
-    let doc = "Primary policy." in
-    Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "wait" Metrics.criteriaList) & info ["primary"] ~docv:"PRIMARY" ~doc)
-  in let backfill =
-    let doc = "Backfilling policy." in
-    Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "wait" Metrics.criteriaList) & info ["backfill"] ~docv:"BACKFILL" ~doc)
-  in let objective =
-    let doc = "Objective for thresholding." in
-    Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "wait" Metrics.criteriaList) & info ["th_objective"] ~docv:"TOBJECTIVE" ~doc)
-  in let threshold =
-    let doc = "Threshold value." in
-    Arg.(value & opt float 10000. & info ["threshold"] ~docv:"THRESHOLD" ~doc)
-  in
-  let doc = "Simulate a EASY-backfilling scheduler with a fixed BF heuristic using thresholding on a main
-  objective." in
-  let man =
-    [`S "DESCRIPTION";
-     `P doc] @ help_secs
-  in
-  Term.(const Simulate.threshold $ copts_t $ reservation $ backfill $ objective $ threshold),
-  Term.info "threshold" ~doc ~sdocs:docs ~man
+(*let threshold_cmd =*)
+  (*let docs = copts_sect*)
+  (*in let reservation =*)
+    (*let doc = "Primary policy." in*)
+    (*Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "wait" Metrics.criteriaList) & info ["primary"] ~docv:"PRIMARY" ~doc)*)
+  (*in let backfill =*)
+    (*let doc = "Backfilling policy." in*)
+    (*Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "wait" Metrics.criteriaList) & info ["backfill"] ~docv:"BACKFILL" ~doc)*)
+  (*in let objective =*)
+    (*let doc = "Objective for thresholding." in*)
+    (*Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "wait" Metrics.criteriaList) & info ["th_objective"] ~docv:"TOBJECTIVE" ~doc)*)
+  (*in let threshold =*)
+    (*let doc = "Threshold value." in*)
+    (*Arg.(value & opt float 10000. & info ["threshold"] ~docv:"THRESHOLD" ~doc)*)
+  (*in*)
+  (*let doc = "Simulate a EASY-backfilling scheduler with a fixed BF heuristic using thresholding on a main*)
+  (*objective." in*)
+  (*let man =*)
+    (*[`S "DESCRIPTION";*)
+     (*`P doc] @ help_secs*)
+  (*in*)
+  (*Term.(const Simulate.threshold $ copts_t $ reservation $ backfill $ objective $ threshold),*)
+  (*Term.info "threshold" ~doc ~sdocs:docs ~man*)
 
 let oneshot_cmd =
   let docs = copts_sect
@@ -130,76 +130,77 @@ let oneshot_cmd =
   Term.(const Simulate.oneshot $ copts_t $ reservation $ backfill ),
   Term.info "oneshot" ~doc ~sdocs:docs ~man
 
-let bandit_random_cmd =
-  let docs = copts_sect
-  in let backfill =
-    let doc = "Backfilling type." in
-    Arg.(value & opt (enum Metrics.criteriaList) (module Metrics.CriteriaWait : Metrics.CriteriaSig) & info ["backfill"] ~docv:"BACKFILL" ~doc)
-  in let policies=
-    let doc = "Policies." in
-    Arg.(value & opt (list ~sep:',' (enum Metrics.criteriaList)) Bandit.default_policies & info ["policies"] ~docv:"POLICIES" ~doc)
-  in let period =
-    let doc = "Period value." in
-    Arg.(value & opt int 86400 & info ["period"] ~docv:"PERIOD" ~doc)
-  in let threshold =
-    let doc = "Threshold value." in
-    Arg.(value & opt float 0. & info ["threshold"] ~docv:"THRESHOLD" ~doc)
-  in
-  let doc = "Simulates the run of a random Bandit EASY backfilling scheduler." in
-  let man =
-    [`S "DESCRIPTION";
-     `P doc] @ help_secs
-  in
-  Term.(const Simulate.randomBandit $ copts_t $ period  $ backfill $ threshold $ policies),
-  Term.info "bandit-random" ~doc ~sdocs:docs ~man
+(*let bandit_random_cmd =*)
+  (*let docs = copts_sect*)
+  (*in let backfill =*)
+    (*let doc = "Backfilling type." in*)
+    (*Arg.(value & opt (enum Metrics.criteriaList) (module Metrics.CriteriaWait : Metrics.CriteriaSig) & info ["backfill"] ~docv:"BACKFILL" ~doc)*)
+  (*in let policies=*)
+    (*let doc = "Policies." in*)
+    (*Arg.(value & opt (list ~sep:',' (enum Metrics.criteriaList)) Bandit.default_policies & info ["policies"] ~docv:"POLICIES" ~doc)*)
+  (*in let period =*)
+    (*let doc = "Period value." in*)
+    (*Arg.(value & opt int 86400 & info ["period"] ~docv:"PERIOD" ~doc)*)
+  (*in let threshold =*)
+    (*let doc = "Threshold value." in*)
+    (*Arg.(value & opt float 0. & info ["threshold"] ~docv:"THRESHOLD" ~doc)*)
+  (*in*)
+  (*let doc = "Simulates the run of a random Bandit EASY backfilling scheduler." in*)
+  (*let man =*)
+    (*[`S "DESCRIPTION";*)
+     (*`P doc] @ help_secs*)
+  (*in*)
+  (*Term.(const Simulate.randomBandit $ copts_t $ period  $ backfill $ threshold $ policies),*)
+  (*Term.info "bandit-random" ~doc ~sdocs:docs ~man*)
 
-(*Arg.(value & opt (list ~sep:',' (pair ~sep:'-' (enum Metrics.criteriaList) (enum Metrics.criteriaList))) default_policies & info ["policies"] ~docv:"POLICIES" ~doc)*)
+(*[>Arg.(value & opt (list ~sep:',' (pair ~sep:'-' (enum Metrics.criteriaList) (enum Metrics.criteriaList))) default_policies & info ["policies"] ~docv:"POLICIES" ~doc)<]*)
 
-let bandit_cmd =
-  let docs = copts_sect
-  in let clairvoyant =
-    let doc = "Use full feedback." in
-    Arg.(value & flag & info ["clairvoyant"] ~docs ~doc)
-  in let clvOut =
-    let doc = "Clairvoyant output file." in
-    Arg.(value & opt (some string) None & info ["clvo"] ~docv:"LOGCLV" ~doc)
-  in let noisy =
-    let doc = "Make the full feedback noisy." in
-    Arg.(value & flag & info ["noisy"] ~docs ~doc)
-  in let backfill =
-    let doc = "Backfilling type." in
-    Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "wait" Metrics.criteriaList) & info ["backfill"] ~docv:"BACKFILL" ~doc)
-  in let explo =
-    let doc = "Bandit hyperparameter." in
-    Arg.(value & opt float 0.7 & info ["hyperparameter"] ~docv:"HYPERPARAM" ~doc)
-  in let policies=
-    let doc = "Policies." in
-    Arg.(value & opt (list ~sep:',' (enum Metrics.criteriaList)) Bandit.default_policies & info ["policies"] ~docv:"POLICIES" ~doc)
-  in let rewardType =
-    let doc = "Use opposite Reward." in
-    Arg.(value & opt (enum Bandit.rewardTypeEncoding) Bandit.Basic & info ["rewardtype"] ~docs ~doc)
-  in let period =
-    let doc = "Period value." in
-    Arg.(value & opt int 86400 & info ["period"] ~docv:"PERIOD" ~doc)
-  in let threshold =
-    let doc = "Threshold value." in
-    Arg.(value & opt float 0. & info ["threshold"] ~docv:"THRESHOLD" ~doc)
-  in let reset_out =
-    let doc = "Specify reset output file." in
-    Arg.(value & opt (some string) None & info ["reset"] ~docv:"RESET" ~doc)
-  in let select_out =
-    let doc = "Specify select output file." in
-    Arg.(value & opt (some string) None & info ["select"] ~docv:"SELECT" ~doc)
-  in
-  let doc = "Simulates the run of a Bandit EASY backfilling scheduler." in
-  let man =
-    [`S "DESCRIPTION";
-     `P doc] @ help_secs
-  in
-  Term.(const Simulate.bandit $ copts_t $ explo $ rewardType $ period  $ backfill $ threshold $ policies $ reset_out $ clairvoyant $ noisy $ select_out $ clvOut),
-  Term.info "bandit-onpolicy" ~doc ~sdocs:docs ~man
+(*let bandit_cmd =*)
+  (*let docs = copts_sect*)
+  (*in let clairvoyant =*)
+    (*let doc = "Use full feedback." in*)
+    (*Arg.(value & flag & info ["clairvoyant"] ~docs ~doc)*)
+  (*in let clvOut =*)
+    (*let doc = "Clairvoyant output file." in*)
+    (*Arg.(value & opt (some string) None & info ["clvo"] ~docv:"LOGCLV" ~doc)*)
+  (*in let noisy =*)
+    (*let doc = "Make the full feedback noisy." in*)
+    (*Arg.(value & flag & info ["noisy"] ~docs ~doc)*)
+  (*in let backfill =*)
+    (*let doc = "Backfilling type." in*)
+    (*Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "wait" Metrics.criteriaList) & info ["backfill"] ~docv:"BACKFILL" ~doc)*)
+  (*in let explo =*)
+    (*let doc = "Bandit hyperparameter." in*)
+    (*Arg.(value & opt float 0.7 & info ["hyperparameter"] ~docv:"HYPERPARAM" ~doc)*)
+  (*in let policies=*)
+    (*let doc = "Policies." in*)
+    (*Arg.(value & opt (list ~sep:',' (enum Metrics.criteriaList)) Bandit.default_policies & info ["policies"] ~docv:"POLICIES" ~doc)*)
+  (*in let rewardType =*)
+    (*let doc = "Use opposite Reward." in*)
+    (*Arg.(value & opt (enum Bandit.rewardTypeEncoding) Bandit.Basic & info ["rewardtype"] ~docs ~doc)*)
+  (*in let period =*)
+    (*let doc = "Period value." in*)
+    (*Arg.(value & opt int 86400 & info ["period"] ~docv:"PERIOD" ~doc)*)
+  (*in let threshold =*)
+    (*let doc = "Threshold value." in*)
+    (*Arg.(value & opt float 0. & info ["threshold"] ~docv:"THRESHOLD" ~doc)*)
+  (*in let reset_out =*)
+    (*let doc = "Specify reset output file." in*)
+    (*Arg.(value & opt (some string) None & info ["reset"] ~docv:"RESET" ~doc)*)
+  (*in let select_out =*)
+    (*let doc = "Specify select output file." in*)
+    (*Arg.(value & opt (some string) None & info ["select"] ~docv:"SELECT" ~doc)*)
+  (*in*)
+  (*let doc = "Simulates the run of a Bandit EASY backfilling scheduler." in*)
+  (*let man =*)
+    (*[`S "DESCRIPTION";*)
+     (*`P doc] @ help_secs*)
+  (*in*)
+  (*Term.(const Simulate.bandit $ copts_t $ explo $ rewardType $ period  $ backfill $ threshold $ policies $ reset_out $ clairvoyant $ noisy $ select_out $ clvOut),*)
+  (*Term.info "bandit-onpolicy" ~doc ~sdocs:docs ~man*)
 
-let cmds = [mixed_cmd;bandit_random_cmd;bandit_cmd; oneshot_cmd; threshold_cmd; help_cmd]
+(*let cmds = [mixed_cmd;bandit_random_cmd;bandit_cmd; oneshot_cmd; threshold_cmd; help_cmd]*)
+let cmds = [ oneshot_cmd; help_cmd]
 
 let default_cmd =
   let doc = "a backfilling simulator" in

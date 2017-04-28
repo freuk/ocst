@@ -1,42 +1,41 @@
-open Easy
-(************************************** Jobs *************************************)
-type job = { r:int; p:int; p_est:int; q:int} (*job data*)
-type jobTable = (int,job) Hashtbl.t          (*id-indexed table*)
-
-(************************************** System ***********************************)
-type system =
-    { free: int;                             (*free resources*)
-      running: (int*int) list;               (*currently running jobs (startT,id)*)
-      waiting : int list;                    (*queud jobs (id)*)
-    }
-
-let emptySystemState maxprocs = { free = maxprocs; running = []; waitQueue = []; }
-
+open System
+(*open Easy*)
 (************************************** Events ***********************************)
-type eventType = Submit | Finish
-type event = { time : int;
+module EventHeap = struct
+  type event_type = Submit | Finish
+
+  module OrderedEvents =
+  struct
+    type t = { time : int;
                id : int ;
-               eventType : eventType }
-module EventHeap = BatHeap.Make( struct
-                                   type t = event
-                                   let compare e1 e2 = compare e1.time e2.time
-                                 end )
-type unloadedEvents = Events of (EventHeap.t * int * (event list)) | EndSimulation
-let unloadEvents h =
-  in if (EventHeap.size h = 0) then
-    EndSimulation
-  else
-    let firstEvent = EventHeap.find_min h
-    in let getEvent h eventList =
-      if (EventHeap.size h = 0) then
-        Events (h, time, eventList)
-      else
-        let e = EventHeap.find_min h
-        in if e.time > firstEvent.time then
-          Events (h, time, eventList)
+               event_type : event_type }
+    let compare e1 e2 = compare e1.time e2.time
+  end
+
+  include BatHeap.Make (OrderedEvents)
+
+  let of_job_table job_table =
+    let f i j h  = add ({time=j.r; id=i; event_type=Submit}:elem) h
+    in Hashtbl.fold f job_table empty
+
+  type unloadedEvents = Events of (t * int * (elem list)) | EndSimulation
+
+  let unloadEvents h =
+    if (size h = 0) then
+      EndSimulation
+    else
+      let firstEvent = find_min h
+      in let rec getEvent h eventList =
+        if (size h = 0) then
+          Events (h, firstEvent.time, eventList)
         else
-          getEvent (EventHeap.del_min h) (e::eventList)
-    in getEvent (EventHeap.del_min h) [e]
+          let e = find_min h
+          in if e.time > firstEvent.time then
+            Events (h, firstEvent.time, eventList)
+          else
+            getEvent (del_min h) (e::eventList)
+      in getEvent (del_min h) [firstEvent]
+end
 
 (************************************** Engine ***********************************)
 (*TODO refactor. Statistics module*)
@@ -51,87 +50,96 @@ module type Stat = sig
 end
 (*END TODO*)
 
-(*TODO refactor. Hook module*)
-module type Hook = sig
-  val hook : int -> unit
-end
-module NoHook = struct
-  let hook _ = ()
-end
-(*END TODO*)
-
 module type SimulatorParam = sig
   val output_channel : out_channel option
   val output_channel_bf : out_channel option
-  val jobs : jobTable
+  val jobs : job_table
 end
 
 (*simulator module*)
 module type Simulator = sig
-  type outputStat
   val simulate : EventHeap.t -> system -> unit
 end
 
 (*simulator building functor*)
 module MakeSimulator
-  (St:Stat) (*TODO refactor*)
-  (Sch:Scheduler)
+  (Sch:Easy.Scheduler)
   (P:SimulatorParam)
-  (Hk:Hook) (*TODO refactor*)
-  :Simulator with type outputStat = St.outputStat = struct
-    type outputStat = St.outputStat
+  :Simulator =
+struct
+  (*apply some events' effect on the system; this can be optimized.*)
+  let executeEvents ~system:system ~eventList:el : system=
+    let execute s (e:EventHeap.elem) =
+      match e.event_type with
+        | Submit -> { s with waiting = e.id::s.waiting }
+        | Finish ->
+            let q = (Hashtbl.find P.jobs e.id).q
+            in { running = List.filter (fun (_,i) -> i!=e.id) s.running;
+                 free = s.free + q;
+                 waiting=s.waiting ; }
+    in List.fold_left execute system el
 
-    (*apply some events' effect on the system; this can be optimized.*)
-    let executeEvents system eventList =
-      let execute e s =
-        match e.event_type with
-          | Submit -> { s with waitQueue = i::s.waitQueue }
-          | End ->
-              let q = ( S.jobTable e.id).q
-              in { s with
-                       running = List.filter (fun (_,i) -> i!=e.id) s.running;
-                       free = s.free + q; }
-      in List.fold_left execute system eventList
+  (*apply some scheduling decisions on the system and the event heap.*)
+  let executeDecisions s h now idList =
+    let jobList = List.map (fun i -> Hashtbl.find P.jobs i) idList
+    in
+      {
+        free = s.free - (List.fold_left (fun acc j -> acc + j.q) 0 jobList);
+        running = s.running @ List.map2 (fun j i -> (j.p_est+now,i)) jobList idList;
+        waiting = List.filter (fun x -> not (List.mem x idList)) s.waiting;
+      },
+      let eventList =
+        let f j i : EventHeap.elem = {time=now+j.p; id=i; event_type=Finish}
+        in List.map2 f jobList idList
+      in (EventHeap.merge h (EventHeap.of_list eventList))
 
-    (*apply some scheduling decisions on the system and the event heap.*)
-    let executeDecisions s h now idList =
-      let jobList = List.map (fun i ->  S.jobTable i) idList
-      in
-        {
-          free = (let sumLoad = List.fold_left (acc j -> acc + j.q) jobList
-                  in s.free - sumLoad);
-          running =
-            (let nr = List.map2 (fun j i -> (j.p_est+now,i)) jobList idList
-             in s.running @ nr) ;
-          waiting = List.filter (fun x -> not (List.mem x idList)) s.waiting;
-        },
-        let eventList =
-          let f j i = {time=time+j.p; id=i; eventType=Finish}
-          in List.map2 f jobList idList
-        in (EventHeap.merge h (EventHeap.of_list eventList))
-
-    let simulate (eventheap:EventHeap.t) (system:system) =
-      (*step h s where h is the event heap and s is the system*)
-      let step h s =
-        match unloadEvents () with
-          | EndSimulation -> ()
-          | Events h, now, eventList ->
-              let s = executeEvents eventList
-              in let decisions = Sch.schedule now s
-              in let () = St.incStat now decisions
-              in let s, h = executeDecisions s h now decisions
-              in let () = Hk.hook now;
-              in step h s
-      in step eventheap system
-  end
+  let simulate (eventheap:EventHeap.t) (system:system) =
+    (*step h s where h is the event heap and s is the system*)
+    let rec step h s =
+      match EventHeap.unloadEvents h with
+        | EventHeap.EndSimulation -> ()
+        | EventHeap.Events (h, now, eventList) ->
+            let s = executeEvents ~system:s ~eventList:eventList
+            in let decisions = Sch.schedule now s
+            in let s, h = executeDecisions s h now decisions
+            in step h s
+    in step eventheap system
+end
 
     (*let executeDecisions system h now decisions =*)
     (*let execute acc id =*)
     (*let s,h = acc*)
-    (*in let j = (Jobs.find S.jobTable id)*)
+    (*in let j = (Jobs.find S.job_table id)*)
     (*and waiting = List.filter (fun i -> i!=id) s.waiting;*)
     (*in let free = s.free - j.q*)
     (*and running = s.running @ [(j.p_est+now,id)]*)
-    (*in let h =  Heap.add h {time=time+j.p; id=id; eventType=Finish}*)
+    (*in let h =  Heap.add h {time=time+j.p; id=id; event_type=Finish}*)
     (*in BatOption.may (job_to_swf_row now S.jobs id) P.output_channel;*)
     (*in List.fold_left execute (system ,h) decisions*)
+
+
+
+
+(************************************** Stats ************************************)
+
+(*module StatWait (P:Easy.SchedulerParam) : Stat*)
+                   (*with type outputStat = float =*)
+(*struct*)
+  (*type outputStat = float*)
+  (*module M = MakeWaitAccumulator(SystemParam)*)
+  (*let n = ref 0*)
+  (*let m = ref 0*)
+  (*let getN () = !n*)
+  (*let getStat () = !m*)
+  (*let incStat t jl =*)
+    (*(m:= List.fold_left (fun acc j -> acc + Metrics.CriteriaWait.criteria P.jobs now i) !m jl;*)
+     (*n:= !n + (List.length jl))*)
+  (*let reset () =  (n := 0; m:=0 )*)
+(*end*)
+
+(*module type StatMetricSig = sig*)
+  (*val add : int -> int list -> unit*)
+  (*val get : unit -> float*)
+  (*val reset : unit -> unit*)
+(*end*)
+

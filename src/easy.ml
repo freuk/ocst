@@ -1,19 +1,29 @@
+open System
+
+(*************************** Common parameter *************************************)
+module type SchedulerParam = sig
+  val jobs : job_table
+end
+
 (***************************Primary and backfilling selectors***********************)
 
 (**** Primary Selector ****)
 module type Primary = sig
   val reorder :
-    Engine.system ->                (*system state before primary jobs are started*)
-    now:int ->                      (*now*)
+    system:System.system ->        (*system state before primary jobs are started*)
+    now:int ->                     (*now*)
+    int list->                     (*jobs to reorder*)
     int list
 end
 
 module MakeGreedyPrimary
   (C:Metrics.Criteria)
+  (S:SchedulerParam)
   : Primary =
 struct
-  let reorder s now =
-    let comp i1 i2 = compare (C.criteria s now i2) (C.criteria s now i1)
+  let crit = C.criteria S.jobs
+  let reorder ~system:s ~now:now =
+    let comp i1 i2 = compare (crit s now i2) (crit s now i1)
     in List.sort comp
 end
 
@@ -31,8 +41,10 @@ end
 
 module MakeGreedySecondary
   (C:Metrics.Criteria)
+  (S:SchedulerParam)
   : Secondary =
 struct
+  let crit = C.criteria S.jobs
   let selector
         ~system:s
         ~now:now
@@ -41,21 +53,16 @@ struct
         ~reservationID:resjob
         ~reservationFree:resres =
     let rec argmax v ip = function
-      |i::is when v <= (C.criteria s now i) -> argmax (C.criteria s now i) i is
+      |i::is when v <= (crit s now i) -> argmax (crit s now i) i is
       |i::is -> argmax v ip is
       |[] -> ip
     and id = List.hd bfable
-    in argmax (C.criteria s now id) id bfable
+    in argmax (crit s now id) id bfable
 end
 
 (************************************ Scheduler ***************************************)
-
-module type SchedulerParam = sig
-  val jobs : jobTable
-end
-
 module type Scheduler = sig
-  val schedule : int -> Engine.system -> int list
+  val schedule : int -> System.system -> int list
 end
 
 module MakeEasyScheduler
@@ -64,39 +71,41 @@ module MakeEasyScheduler
   (P:SchedulerParam)
   : Scheduler
      = struct
+       let find_job = Hashtbl.find P.jobs
        let get_easy free waitqueue =
          let rec easy decision free = function
            |[] -> (decision,free,None,[])
-           | i :: is when free>=(find P.jobs i).q -> easy (decision@[i]) (free-(find jobs i).q) is
+           | i :: is when free>=(find_job i).q -> easy (decision@[i]) (free-(find_job i).q) is
            | i :: is -> (decision,free,Some i,is)
          in easy  [] free waitqueue
 
        let get_backfillable r r' t idlist =
          assert (t>0);
          let p i =
-           let j = find P.jobs i
+           let j = find_job i
            in j.q <= (min r' r) || (j.q <= r && j.p_est <= t)
          in List.filter p idlist
 
        let reserve now free id running decision=
-         let job = find P.jobs id
-         in let make_projected_end i = (now + (find P.jobs i).p_est ,i)
-         in let projectedEndList = List.map make_projected_end ((List.map snd running) @ decision)
+         let job = find_job id
+         and tuplify i = (now + (find_job i).p_est ,i)
+         in let addEstimate (t,i) = (t+ (find_job i).p_est,i)
+         in let projectedEndList = List.map addEstimate (running @ (List.map tuplify decision))
          in let sortedProjectedEndList = List.sort (fun (t,_) (t',_) -> compare t t') projectedEndList
          in let rec fits f l = match l with
            | [] -> failwith "Internal error: resource usage data inconsistent."
-           | (t,i)::_ when f+(find P.jobs i).q >= job.q -> (t-now, f+(find P.jobs i).q-job.q)
-           | (t,i)::tis -> fits (f+(find P.jobs i).q) tis
+           | (t,i)::_ when f+(find_job i).q >= job.q -> (t-now, f+(find_job i).q-job.q)
+           | (t,i)::tis -> fits (f+(find_job i).q) tis
          in fits free sortedProjectedEndList
 
        let schedule now s =
-         assert (free >= 0);
-         match get_easy s.free (Primary.reorder s now) with
+         assert (s.free >= 0);
+         match get_easy s.free (Primary.reorder s now s.waiting) with
            | decision , _        , None     , _    ->  decision
            | decision , _        , sid      , []   ->  decision
            | decision , free'    , Some id  , rest ->
                let () = assert (free' >= 0);
-               in let t, f_r = reserve now free' id system.running decision
+               in let t, f_r = reserve now free' id s.running decision
                in let () = assert (t>0)
                in let rec picknext decisionlist f f' idlist =
                  assert (f >= 0);
@@ -105,8 +114,14 @@ module MakeEasyScheduler
                  in match bfable with
                    | [] -> decisionlist
                    | _::_ ->
-                       let idpicked = Secondary.selector s now bfable t id f_r
-                       in let j = find P.jobs idpicked
+                       let idpicked = Secondary.selector 
+                                        ~system:s
+                                        ~now:now 
+                                        ~backfillable:bfable 
+                                        ~reservationT:t 
+                                        ~reservationID:id 
+                                        ~reservationFree:f_r
+                       in let j = find_job idpicked
                        in let res = j.q
                        in let runt = j.p_est
                        in let new_f  = f-res
@@ -118,8 +133,8 @@ module MakeEasyScheduler
      end
 
 (*examples:*)
-module MakeEasyGreedy(CR:Criteria)(CB:Criteria)(P:SchedulerParam) =
-  MakeEasyScheduler(MakeGreedyPrimary(P)(CR))(MakeGreedySecondary(CB)(P))(P)
+(*module MakeEasyGreedy(CR:Criteria)(CB:Criteria)(P:SchedulerParam) =*)
+  (*MakeEasyScheduler(MakeGreedyPrimary(P)(CR))(MakeGreedySecondary(CB)(P))(P)*)
 
 (*module MakeEasyEpsRandGreedy (E:EpsGreedyParameter)(CR:Criteria)(CB:Criteria)(P:SchedulerParam) =*)
 (*MakeEasyScheduler(MakeGreedyPrimary(P)(CR))(MakeEpsGreedySecondary(E)(CB)(P))(P)*)

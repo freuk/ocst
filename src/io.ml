@@ -1,4 +1,4 @@
-open Jobs
+open System
 
 let optionize_string = function
     |"" -> None
@@ -123,15 +123,14 @@ let printjob_shift r j id output_channel =
     0         (* 18 Think Time From Preceding Job  *)
 
 let job_to_swf_row now jobs id output_channel =
-  printjob now (find jobs id) id output_channel
+  printjob now (Hashtbl.find jobs id) id output_channel
 
 let parse_job (row:string) : int * job =
   let l=Str.split (Str.regexp "[ ]+") row
   in let j= { r     = int_of_string (List.nth l 1);
               p     = int_of_string (List.nth l 3);
               p_est = int_of_string (List.nth l 8);
-              q     = int_of_string (List.nth l 7);
-              u     = int_of_string (List.nth l 11)}
+              q     = int_of_string (List.nth l 7)}
   and id = int_of_string (List.hd l)
   in begin
     assert (id>=0);
@@ -144,7 +143,7 @@ let parse_job (row:string) : int * job =
   end
 
 let parse_jobs fn =
-  let jobs: job_table = new_job_table ()
+  let jobs: job_table = Hashtbl.create 1000
    in let parse_row maxprocs header jobs (row: string): unit =
     if (String.contains row ';') then
       begin
@@ -159,7 +158,7 @@ let parse_jobs fn =
       end
     else
     let id,j=parse_job row
-    in add jobs id j;
+    in Hashtbl.add jobs id j;
   in let ic=open_in fn
   in let maxprocs = ref 0
   in let () =
@@ -176,7 +175,7 @@ let parse_jobs fn =
     with e ->
       close_in_noerr ic;
       raise e;
-  in jobs, maxprocs
+  in jobs, !maxprocs
 
 let do_io_perturbator () =
   let args = parse_perturbator_args ()

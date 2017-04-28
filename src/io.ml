@@ -130,7 +130,8 @@ let parse_job (row:string) : int * job =
   in let j= { r     = int_of_string (List.nth l 1);
               p     = int_of_string (List.nth l 3);
               p_est = int_of_string (List.nth l 8);
-              q     = int_of_string (List.nth l 7)}
+              q     = int_of_string (List.nth l 7);
+              u     = int_of_string (List.nth l 11)}
   and id = int_of_string (List.hd l)
   in begin
     assert (id>=0);

@@ -120,7 +120,7 @@ let oneshot_cmd =
     Arg.(required & pos 1 (some (enum Metrics.criteriaList)) None & info [] ~docv:"RESERVATION" ~doc)
   in let backfill =
     let doc = "Backfilling type." in
-    Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "wait" Metrics.criteriaList) & info ["backfill"] ~docv:"BACKFILL" ~doc)
+    Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "fcfs" Metrics.criteriaList) & info ["backfill"] ~docv:"BACKFILL" ~doc)
   in
   let doc = "Simulates the run of a classic EASY backfilling scheduler using a given reservation and backfill order." in
   let man =
@@ -200,7 +200,7 @@ let oneshot_cmd =
   (*Term.info "bandit-onpolicy" ~doc ~sdocs:docs ~man*)
 
 (*let cmds = [mixed_cmd;bandit_random_cmd;bandit_cmd; oneshot_cmd; threshold_cmd; help_cmd]*)
-let cmds = [ oneshot_cmd; help_cmd]
+let cmds = [oneshot_cmd; help_cmd]
 
 let default_cmd =
   let doc = "a backfilling simulator" in
@@ -208,5 +208,6 @@ let default_cmd =
   Term.(ret (const  (`Help (`Pager, None)) )),
   Term.info "ocs" ~version:"0.1" ~sdocs:copts_sect ~doc ~man
 
-let () = match Term.eval_choice default_cmd cmds with
+let () =
+  match Term.eval_choice default_cmd cmds with
   | `Error _ -> exit 1 | _ -> exit 0

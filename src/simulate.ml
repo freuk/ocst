@@ -13,35 +13,37 @@ type copts = {
   swf_in: string;
   swf_out : string option;
   backfill_out : string option;
-  maxProcs : int;
+  max_procs : int;
   debug : bool}
-let copts swf_in swf_out backfill_out maxProcs debug seed =
+let copts swf_in swf_out backfill_out max_procs debug seed =
   Random.init seed;
-  {swf_in; swf_out; backfill_out; maxProcs; debug}
+  {swf_in; swf_out; backfill_out; max_procs; debug}
 
 let oneshot copts reservation backfill =
-  let job_table,maxProcs,h =
+  let job_table,max_procs,h,s =
     let jt,mp = Io.parse_jobs copts.swf_in
-    in jt,(max mp copts.maxProcs),Engine.EventHeap.of_job_table jt
-  and s = Engine.emptySystemState
-  in try
-    let module SchedulerParam = struct let jobs = job_table end
-    in let module CPrim = (val reservation:Metrics.Criteria)
-    in let module Primary = Easy.MakeGreedyPrimary(CPrim)(SchedulerParam)
-    in let module CSec = (val backfill:Metrics.Criteria)
-    in let module Secondary = Easy.MakeGreedySecondary(CSec)(SchedulerParam)
-    in let module Scheduler = Easy.MakeEasyScheduler(Primary)(Secondary)(SchedulerParam)
-    in let module S =
-      Engine.MakeSimulator(Scheduler)
-        (struct include SchedulerParam
-           let output_channel = BatOption.map open_out copts.swf_out
-           let output_channel_bf = BatOption.map open_out copts.backfill_out
-         end)
-           in S.simulate h s
+    in let real_mp = max mp copts.max_procs
+    in jt,real_mp,Engine.EventHeap.of_job_table jt,System.emptySystemState real_mp
+  in let module SchedulerParam = struct let jobs = job_table end
+  in let module CPrim = (val reservation:Metrics.Criteria)
+  in let module Primary = Easy.MakeGreedyPrimary(CPrim)(SchedulerParam)
+  in let module CSec = (val backfill:Metrics.Criteria)
+  in let module Secondary = Easy.MakeGreedySecondary(CSec)(SchedulerParam)
+  in let module Scheduler = Easy.MakeEasyScheduler(Primary)(Secondary)(SchedulerParam)
+  in let output_channel = BatOption.map open_out copts.swf_out
+  and output_channel_bf = BatOption.map open_out copts.backfill_out
+  in try 
+    let module S =
+    Engine.MakeSimulator(Scheduler)
+      (struct include SchedulerParam
+         let output_channel = output_channel
+         let output_channel_bf = output_channel_bf
+       end)
+         in S.simulate h s
   with e ->
     begin
-      BatOption.may close_out_noerr oc;
-      BatOption.may close_out_noerr ocb;
+      BatOption.may close_out_noerr output_channel;
+      BatOption.may close_out_noerr output_channel_bf;
       raise e;
     end;
 
@@ -145,7 +147,7 @@ let oneshot copts reservation backfill =
      (*BatOption.may (fun x-> Printf.printf "Writing backfill data on output file %s\n" x) copts.backfill_out*)
    (*end;*)
 
-   (*in let job_table,maxProcs = Io.parse_jobs copts.swf_in*)
+   (*in let job_table,max_procs = Io.parse_jobs copts.swf_in*)
 
    (*in let oc,ocb,ocr,ocs,occ = *)
      (*begin*)
@@ -170,7 +172,7 @@ let oneshot copts reservation backfill =
 
      (*in let module SystemParam = struct*)
         (*let waitqueue = empty_job_waiting_queue ()*)
-        (*let resourcestate = empty_resources (max !maxProcs copts.maxProcs)*)
+        (*let resourcestate = empty_resources (max !max_procs copts.max_procs)*)
         (*let jobs = job_table*)
      (*end*)
 

@@ -30,9 +30,9 @@ let copts_t =
   in let seed =
     let doc = "Random seed value." in
     Arg.(value & opt int 0 & info ["seed"] ~docv:"SEED" ~docs ~doc)
-  in let maxProcs =
-    let doc = "Enforce maxProcs value." in
-    Arg.(value & opt int 0 & info ["maxProcs"] ~docv:"MAXPROCS" ~docs ~doc)
+  in let max_procs =
+    let doc = "Enforce max_procs value." in
+    Arg.(value & opt int 0 & info ["max_procs"] ~docv:"MAXPROCS" ~docs ~doc)
   in
   let swf_out =
     let doc = "Specify output swf file." in
@@ -45,7 +45,7 @@ let copts_t =
   let swf_in =
     let doc = "Input swf file." in
     Arg.(required & pos 0 (some file) None & info [] ~docv:"SWFINPUT" ~doc)
-  in Term.(const copts $ swf_in $ swf_out $ backfill_out $ maxProcs $ debug $ seed)
+  in Term.(const copts $ swf_in $ swf_out $ backfill_out $ max_procs $ debug $ seed)
 
 let help_cmd =
   let topic =

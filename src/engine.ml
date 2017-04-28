@@ -85,7 +85,7 @@ struct
     in
       {
         free = s.free - (List.fold_left (fun acc j -> acc + j.q) 0 jobList);
-        running = s.running @ List.map2 (fun j i -> (j.p_est+now,i)) jobList idList;
+        running = s.running @ (List.map (fun i -> (now,i)) idList);
         waiting = List.filter (fun x -> not (List.mem x idList)) s.waiting;
       },
       let eventList =

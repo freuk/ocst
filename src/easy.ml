@@ -29,14 +29,15 @@ end
 
 (**** Backfilling Selector ****)
 module type Secondary = sig
-  val selector :
-    system:system ->                (*full state of the system*)
+  val pick :
+    system:system ->                (*full state of the system BEFORE starting easy*)
     now:int ->                      (*now*)
     backfillable:int list ->        (*backfillable jobs*)
-    reservationT:int ->             (*time of the reservation*)
+    reservationWait:int ->          (*time of the reservation*)
     reservationID:int ->            (*reservation job*)
     reservationFree:int ->          (*free resources above the reservation job*)
-    int
+    freeNow:int ->                  (*free resources before backfilling*)
+    int list
 end
 
 module MakeGreedySecondary
@@ -45,20 +46,36 @@ module MakeGreedySecondary
   : Secondary =
 struct
   let crit = C.criteria S.jobs
-  let selector
+  let pick
         ~system:s
         ~now:now
         ~backfillable:bfable
-        ~reservationT:restime
+        ~reservationWait:restime
         ~reservationID:resjob
-        ~reservationFree:resres =
-    let rec argmax v ip = function
-      |i::is when v <= (crit s now i) -> argmax (crit s now i) i is
-      |i::is -> argmax v ip is
-      |[] -> ip
-    and id = List.hd bfable
-    in argmax (crit s now id) id bfable
+        ~reservationFree:resres
+        ~freeNow:free =
+    []
+(*let rec argmax v ip = function*)
+(*|i::is when v <= (crit s now i) -> argmax (crit s now i) i is*)
+(*|i::is -> argmax v ip is*)
+(*|[] -> ip*)
+(*and id = List.hd bfable*)
+(*in argmax (crit s now id) id bfable*)
 end
+
+
+(*let bfchoices =*)
+(*Secondary.selector ~system:s ~now:now ~backfillable:bfable*)
+(*~reservationWait:resaWait ~reservationID:id ~reservationFree:resaFree*)
+(*in let () = assert (List.mem idpicked bfable)*)
+(*in let j = fj idpicked*)
+(*in let res = j.q*)
+(*in let runt = j.p_est*)
+(*in let new_f  = f-res*)
+(*in let new_f' = if (runt > resaWait) then f'-res else f'*)
+(*in let remaining_ids = List.filter (fun id -> id != idpicked) bfable*)
+(*in picknext (decisionlist@[(idpicked)]) new_f new_f' remaining_ids*)
+
 
 (************************************ Scheduler ***************************************)
 module type Scheduler = sig
@@ -69,68 +86,71 @@ module MakeEasyScheduler
   (Primary:Primary)
   (Secondary:Secondary)
   (P:SchedulerParam)
-  : Scheduler
-     = struct
-       let find_job = Hashtbl.find P.jobs
-       let get_easy free waitqueue =
-         let rec easy decision free = function
-           |[] -> (decision,free,None,[])
-           | i :: is when free>=(find_job i).q -> easy (decision@[i]) (free-(find_job i).q) is
-           | i :: is -> (decision,free,Some i,is)
-         in easy  [] free waitqueue
+  : Scheduler =
+struct
+  let fj = Hashtbl.find P.jobs
 
-       let get_backfillable r r' t idlist =
-         assert (t>0);
-         let p i =
-           let j = find_job i
-           in j.q <= (min r' r) || (j.q <= r && j.p_est <= t)
-         in List.filter p idlist
+  (*should we attempt to backfill?*)
+  type easy =
+      Simple of int list      (*no backfilling needed*)
+    | Backfill of (int list * (*to start now*)
+                   int *      (*remaining resources after*)
+                   int *      (*id of job to backfill*)
+                   int list)  (*pontentially eligible*)
+  let get_easy ~free:free ~waitqueue:wq =
+    assert (free >= 0);
+    let rec easy decision free = function
+      | [] -> Simple decision
+      | i :: is  -> let remaining = free-(fj i).q
+        in if remaining >= 0 then easy (decision@[i]) remaining is
+        else Backfill (decision,free,i,is)
+    in easy [] free wq
 
-       let reserve now free id running decision=
-         let job = find_job id
-         and tuplify i = (now + (find_job i).p_est ,i)
-         in let addEstimate (t,i) = (t+ (find_job i).p_est,i)
-         in let projectedEndList = List.map addEstimate (running @ (List.map tuplify decision))
-         in let sortedProjectedEndList = List.sort (fun (t,_) (t',_) -> compare t t') projectedEndList
-         in let rec fits f l = match l with
-           | [] -> failwith "Internal error: resource usage data inconsistent."
-           | (t,i)::_ when f+(find_job i).q >= job.q -> (t-now, f+(find_job i).q-job.q)
-           | (t,i)::tis -> fits (f+(find_job i).q) tis
-         in fits free sortedProjectedEndList
+  let reserve ~now:now ~free:free ~q:needed ~running:running ~decision:decision =
+    let rec fits f = function
+      | [] -> failwith "impossible to backfill this job. check MaxProcs."
+      | (t,i)::tis ->
+          let f' = f+ (fj i).q
+          in if f' >= needed then
+            let resaWait = t-now;
+            in ( assert ( resaWait > 0 ); ( resaWait  , f'-needed ))
+            else
+              fits (f') tis
+    and projected =
+      let sort = (List.sort (fun (t,_) (t',_) -> compare t t'))
+      and project = (List.map (fun (t,i) -> (t+ (fj i).p_est,i)))
+      in (running @ (List.map (fun i -> (now,i)) decision))
+      |> project |> sort
+    in fits free projected
 
-       let schedule now s =
-         assert (s.free >= 0);
-         match get_easy s.free (Primary.reorder s now s.waiting) with
-           | decision , _        , None     , _    ->  decision
-           | decision , _        , sid      , []   ->  decision
-           | decision , free'    , Some id  , rest ->
-               let () = assert (free' >= 0);
-               in let t, f_r = reserve now free' id s.running decision
-               in let () = assert (t>0)
-               in let rec picknext decisionlist f f' idlist =
-                 assert (f >= 0);
-                 assert (f'>= 0);
-                 let bfable = get_backfillable  f f' t idlist
-                 in match bfable with
-                   | [] -> decisionlist
-                   | _::_ ->
-                       let idpicked = Secondary.selector 
-                                        ~system:s
-                                        ~now:now 
-                                        ~backfillable:bfable 
-                                        ~reservationT:t 
-                                        ~reservationID:id 
-                                        ~reservationFree:f_r
-                       in let j = find_job idpicked
-                       in let res = j.q
-                       in let runt = j.p_est
-                       in let new_f  = f-res
-                       in let new_f' = if (runt > t) then f'-res else f'
-                       in let remaining_ids = List.filter (fun id -> id != idpicked) bfable
-                       in picknext (decisionlist@[(idpicked)]) new_f new_f' remaining_ids
-               in let backfill_decision= picknext [] free' f_r rest
-               in (decision @ backfill_decision)
-     end
+  (*list jobs eligible for backfilling*)
+  let eligible ~freeNow:r ~freeResa:r' ~resaWait:t ~idlist:idl =
+    assert (t>0);
+    assert (r>=0);
+    assert (r'>=0);
+    let p i =
+      let j = fj i
+      in j.q <= (min r' r) || (j.q <= r && j.p_est <= t)
+    in List.filter p idl
+
+  let schedule now s =
+    match get_easy s.free (Primary.reorder s now s.waiting) with
+      | Simple decision                     -> decision
+      | Backfill (decision, _, _, [])       -> decision
+      | Backfill (decision, free, id, rest) ->
+          assert (free >= 0);
+          let resaWait, resaFree =
+            reserve ~now:now ~free:free ~q:(fj id).q ~running:s.running
+              ~decision:decision
+          in let () = assert (resaWait>0)
+          in let () = assert (resaFree>=0)
+          in let bfable = eligible ~freeNow:free ~freeResa:resaFree ~resaWait:resaWait ~idlist:rest
+          in let backfilled =
+            Secondary.pick ~system:s ~now:now ~backfillable:bfable
+              ~reservationWait:resaWait ~reservationID:id ~reservationFree:resaFree
+              ~freeNow:resaFree
+          in decision @  backfilled
+end
 
 (*examples:*)
 (*module MakeEasyGreedy(CR:Criteria)(CB:Criteria)(P:SchedulerParam) =*)
@@ -195,8 +215,8 @@ module MakeEasyScheduler
 (*:Secondary*)
 (*=struct*)
   (*(* pick a random id from this list -- the non-emply list*)
-    (*should be in format [(proba,id);..] and the probabilities*)
-    (*should add to 1. *)*)
+   (*should be in format [(proba,id);..] and the probabilities*)
+   (*should add to 1. *)*)
   (*let pick_random_weighted (l: (float*int) list) : int =*)
     (*let r = Random.float (float_of_int 1)*)
     (*in let rec nextrandom s i' = function*)

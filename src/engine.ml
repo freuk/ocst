@@ -80,18 +80,15 @@ struct
     in List.fold_left execute system el
 
   (*apply some scheduling decisions on the system and the event heap.*)
-  let executeDecisions s heap now idList =
-    let jobList = List.map (fun i -> Hashtbl.find P.jobs i) idList
-    in
-      {
-        free = s.free - (List.fold_left (fun acc j -> acc + j.q) 0 jobList);
-        running = s.running @ (List.map (fun i -> (now,i)) idList);
-        waiting = List.filter (fun x -> not (List.mem x idList)) s.waiting;
+  let executeDecisions s h now idList =
+    let jobList = List.map (fun i -> (i,Hashtbl.find P.jobs i)) idList
+    in let f (s,h) (i,j) = 
+      { free = s.free - j.q;
+        running = (now,i)::s.running;
+        waiting = List.filter (fun x -> not (i=x)) s.waiting;
       },
-      let eventList =
-        let f j i : EventHeap.elem = {time = now+j.p; id=i; event_type=Finish}
-        in List.map2 f jobList idList
-      in List.fold_left EventHeap.insert heap eventList
+      EventHeap.insert h {time = now+j.p; id=i; event_type=Finish}
+    in List.fold_left f (s,h) jobList
 
   let simulate (eventheap:EventHeap.t) (system:system) =
     (*step h s where h is the event heap and s is the system*)

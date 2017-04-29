@@ -82,7 +82,7 @@ struct
   (*apply some scheduling decisions on the system and the event heap.*)
   let executeDecisions s h now idList =
     let jobList = List.map (fun i -> (i,Hashtbl.find P.jobs i)) idList
-    in let f (s,h) (i,j) = 
+    in let f (s,h) (i,j) =
       { free = s.free - j.q;
         running = (now,i)::s.running;
         waiting = List.filter (fun x -> not (i=x)) s.waiting;

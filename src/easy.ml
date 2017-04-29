@@ -40,40 +40,45 @@ module type Secondary = sig
     int list
 end
 
+(*list jobs eligible for backfilling*)
+
 module MakeGreedySecondary
   (C:Metrics.Criteria)
   (S:SchedulerParam)
   : Secondary =
 struct
+  let is_eligible ~freeNow:r ~freeResa:r' ~resaWait:t ~id:id =
+    assert (t>0);
+    assert (r>=0);
+    assert (r'>=0);
+    let j = Hashtbl.find S.jobs id
+    in j.q <= (min r' r) || (j.q <= r && j.p_est <= t)
   let crit = C.criteria S.jobs
+
   let pick
         ~system:s
         ~now:now
         ~backfillable:bfable
         ~reservationWait:restime
         ~reservationID:resjob
-        ~reservationFree:resres
+        ~reservationFree:free'
         ~freeNow:free =
-    []
-(*let rec argmax v ip = function*)
-(*|i::is when v <= (crit s now i) -> argmax (crit s now i) i is*)
-(*|i::is -> argmax v ip is*)
-(*|[] -> ip*)
-(*and id = List.hd bfable*)
-(*in argmax (crit s now id) id bfable*)
-end
-
-(*let bfchoices =*)
-(*Secondary.selector ~system:s ~now:now ~backfillable:bfable*)
-(*~reservationWait:resaWait ~reservationID:id ~reservationFree:resaFree*)
-(*in let () = assert (List.mem idpicked bfable)*)
-(*in let j = fj idpicked*)
+    let picknext (f, f', picked) i = 
+      (f,f',picked)
+    and sorted =
+      let comp i1 i2 = compare (crit s now i2) (crit s now i1)
+      in List.sort comp bfable
+    in let _,_,r = List.fold_left picknext (free,free',[]) sorted
+    in r
+(*let j = Hashtbl.find S.jobs fj idpicked*)
 (*in let res = j.q*)
 (*in let runt = j.p_est*)
 (*in let new_f  = f-res*)
 (*in let new_f' = if (runt > resaWait) then f'-res else f'*)
 (*in let remaining_ids = List.filter (fun id -> id != idpicked) bfable*)
 (*in picknext (decisionlist@[(idpicked)]) new_f new_f' remaining_ids*)
+end
+
 
 (************************************ Scheduler ***************************************)
 module type Scheduler = sig
@@ -121,15 +126,6 @@ struct
       |> project |> sort
     in fits free projected
 
-  (*list jobs eligible for backfilling*)
-  let eligible ~freeNow:r ~freeResa:r' ~resaWait:t ~idlist:idl =
-    assert (t>0);
-    assert (r>=0);
-    assert (r'>=0);
-    let p i =
-      let j = fj i
-      in j.q <= (min r' r) || (j.q <= r && j.p_est <= t)
-    in List.filter p idl
 
   let schedule now s =
     match get_easy s.free (Primary.reorder s now s.waiting) with
@@ -142,9 +138,8 @@ struct
               ~decision:decision
           in let () = assert (resaWait>0)
           in let () = assert (resaFree>=0)
-          in let bfable = eligible ~freeNow:free ~freeResa:resaFree ~resaWait:resaWait ~idlist:rest
           in let backfilled =
-            Secondary.pick ~system:s ~now:now ~backfillable:bfable
+            Secondary.pick ~system:s ~now:now ~backfillable:rest
               ~reservationWait:resaWait ~reservationID:id ~reservationFree:resaFree
               ~freeNow:resaFree
           in decision @  backfilled

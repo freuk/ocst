@@ -63,7 +63,6 @@ struct
 (*in argmax (crit s now id) id bfable*)
 end
 
-
 (*let bfchoices =*)
 (*Secondary.selector ~system:s ~now:now ~backfillable:bfable*)
 (*~reservationWait:resaWait ~reservationID:id ~reservationFree:resaFree*)
@@ -75,7 +74,6 @@ end
 (*in let new_f' = if (runt > resaWait) then f'-res else f'*)
 (*in let remaining_ids = List.filter (fun id -> id != idpicked) bfable*)
 (*in picknext (decisionlist@[(idpicked)]) new_f new_f' remaining_ids*)
-
 
 (************************************ Scheduler ***************************************)
 module type Scheduler = sig
@@ -111,12 +109,9 @@ struct
       | [] -> failwith "impossible to backfill this job. check MaxProcs."
       | (t,i)::tis ->
           let f' = f+ (fj i).q
-          in let () = Printf.printf "t %d now %d free %d f %d  f'%d  needed %d\n" t now free f f' needed
           in if f' >= needed then
             let resaWait = t-now;
-            in ( Printf.printf "resaWait %d\n" resaWait;
-                 assert ( resaWait > 0 );
-                 ( resaWait  , f'-needed ))
+            in ( assert ( resaWait > 0 ); ( resaWait, f'-needed ))
             else
               fits (f') tis
     and projected =
@@ -124,17 +119,7 @@ struct
       and project = (List.map (fun (t,i) -> (t+ (fj i).p_est,i)))
       in (running @ (List.map (fun i -> (now,i)) decision))
       |> project |> sort
-    in 
-      Printf.printf "%s" "RUNNING \n";
-      List.map (fun (t,i) -> Printf.printf "t %d i %d " t i) running;
-      Printf.printf "%s" "\n";
-      Printf.printf "%s" "RUNNING--NOW \n";
-      List.map (fun (t,i) -> Printf.printf "t %d i %d " t i) (List.map (fun i -> (now,i)) decision);
-      Printf.printf "%s" "\n";
-      Printf.printf "%s" "PROJECTED \n";
-      List.map (fun (t,i) -> Printf.printf "t %d i %d " t i) projected;
-      Printf.printf "%s" "\n";
-      fits free projected
+    in fits free projected
 
   (*list jobs eligible for backfilling*)
   let eligible ~freeNow:r ~freeResa:r' ~resaWait:t ~idlist:idl =
@@ -147,7 +132,6 @@ struct
     in List.filter p idl
 
   let schedule now s =
-    Printf.printf "Scheduling at %d\n" now;
     match get_easy s.free (Primary.reorder s now s.waiting) with
       | Simple decision                     -> decision
       | Backfill (decision, _, _, [])       -> decision

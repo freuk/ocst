@@ -20,11 +20,11 @@ module EventHeap = struct
 
   type unloadedEvents = Events of (t * int * (elem list)) | EndSimulation
 
-  let unloadEvents h =
-    if (size h = 0) then
+  let unloadEvents heap =
+    if (size heap = 0) then
       EndSimulation
     else
-      let firstEvent = find_min h
+      let firstEvent = find_min heap
       in let rec getEvent h eventList =
         if (size h = 0) then
           Events (h, firstEvent.time, eventList)
@@ -34,7 +34,7 @@ module EventHeap = struct
             Events (h, firstEvent.time, eventList)
           else
             getEvent (del_min h) (e::eventList)
-      in getEvent (del_min h) [firstEvent]
+      in getEvent (del_min heap) [firstEvent]
 end
 
 (************************************** Engine ***********************************)
@@ -80,7 +80,7 @@ struct
     in List.fold_left execute system el
 
   (*apply some scheduling decisions on the system and the event heap.*)
-  let executeDecisions s h now idList =
+  let executeDecisions s heap now idList =
     let jobList = List.map (fun i -> Hashtbl.find P.jobs i) idList
     in
       {
@@ -89,36 +89,22 @@ struct
         waiting = List.filter (fun x -> not (List.mem x idList)) s.waiting;
       },
       let eventList =
-        let f j i : EventHeap.elem = {time=now+j.p; id=i; event_type=Finish}
+        let f j i : EventHeap.elem = {time = now+j.p; id=i; event_type=Finish}
         in List.map2 f jobList idList
-      in (EventHeap.merge h (EventHeap.of_list eventList))
+      in List.fold_left EventHeap.insert heap eventList
 
   let simulate (eventheap:EventHeap.t) (system:system) =
     (*step h s where h is the event heap and s is the system*)
-    let rec step h s =
-      match EventHeap.unloadEvents h with
+    let rec step heap syst =
+      match EventHeap.unloadEvents heap with
         | EventHeap.EndSimulation -> ()
         | EventHeap.Events (h, now, eventList) ->
-            let s = executeEvents ~eventList:eventList s
+            let s = executeEvents ~eventList:eventList syst
             in let decisions = Sch.schedule now s
             in let s, h = executeDecisions s h now decisions
             in step h s
     in step eventheap system
 end
-
-    (*let executeDecisions system h now decisions =*)
-    (*let execute acc id =*)
-    (*let s,h = acc*)
-    (*in let j = (Jobs.find S.job_table id)*)
-    (*and waiting = List.filter (fun i -> i!=id) s.waiting;*)
-    (*in let free = s.free - j.q*)
-    (*and running = s.running @ [(j.p_est+now,id)]*)
-    (*in let h =  Heap.add h {time=time+j.p; id=id; event_type=Finish}*)
-    (*in BatOption.may (job_to_swf_row now S.jobs id) P.output_channel;*)
-    (*in List.fold_left execute (system ,h) decisions*)
-
-
-
 
 (************************************** Stats ************************************)
 
@@ -142,4 +128,3 @@ end
   (*val get : unit -> float*)
   (*val reset : unit -> unit*)
 (*end*)
-

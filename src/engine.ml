@@ -68,7 +68,7 @@ module MakeSimulator
   :Simulator =
 struct
   (*apply some events' effect on the system; this can be optimized.*)
-  let executeEvents ~system:system ~eventList:el : system=
+  let executeEvents ~eventList:el system=
     let execute s (e:EventHeap.elem) =
       match e.event_type with
         | Submit -> { s with waiting = e.id::s.waiting }
@@ -76,7 +76,7 @@ struct
             let q = (Hashtbl.find P.jobs e.id).q
             in { running = List.filter (fun (_,i) -> i!=e.id) s.running;
                  free = s.free + q;
-                 waiting=s.waiting ; }
+                 waiting=s.waiting; }
     in List.fold_left execute system el
 
   (*apply some scheduling decisions on the system and the event heap.*)
@@ -99,7 +99,7 @@ struct
       match EventHeap.unloadEvents h with
         | EventHeap.EndSimulation -> ()
         | EventHeap.Events (h, now, eventList) ->
-            let s = executeEvents ~system:s ~eventList:eventList
+            let s = executeEvents ~eventList:eventList s
             in let decisions = Sch.schedule now s
             in let s, h = executeDecisions s h now decisions
             in step h s

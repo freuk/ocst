@@ -1,5 +1,4 @@
 open System
-(*open Easy*)
 (************************************** Events ***********************************)
 module EventHeap = struct
   type event_type = Submit | Finish
@@ -37,6 +36,10 @@ module EventHeap = struct
       in getEvent (del_min heap) [firstEvent]
 end
 
+(************************************** History **********************************)
+
+type history = (int*int) list (*list of (id,sub_time)*)
+
 (************************************** Engine ***********************************)
 (*TODO refactor. Statistics module*)
 module type Stat = sig
@@ -51,14 +54,12 @@ end
 (*END TODO*)
 
 module type SimulatorParam = sig
-  val output_channel : out_channel option
-  val output_channel_bf : out_channel option
   val jobs : job_table
 end
 
 (*simulator module*)
 module type Simulator = sig
-  val simulate : EventHeap.t -> system -> unit
+  val simulate : EventHeap.t -> system -> history -> history
 end
 
 (*simulator building functor*)
@@ -80,27 +81,27 @@ struct
     in List.fold_left execute system el
 
   (*apply some scheduling decisions on the system and the event heap.*)
-  let executeDecisions s h now idList =
+  let executeDecisions system heap now idList history =
     let jobList = List.map (fun i -> (i,Hashtbl.find P.jobs i)) idList
-    in let f (s,h) (i,j) =
+    in let f (s,h,hist) (i,j) =
       { free = s.free - j.q;
         running = (now,i)::s.running;
         waiting = List.filter (fun x -> not (i=x)) s.waiting;
-      },
-      EventHeap.insert h {time = now+j.p; id=i; event_type=Finish}
-    in List.fold_left f (s,h) jobList
+      }
+      ,EventHeap.insert h {time = now+j.p; id=i; event_type=Finish}
+      ,(i,now)::hist
+    in List.fold_left f (system,heap,history) jobList
 
   let simulate (eventheap:EventHeap.t) (system:system) (hist:history)=
     (*step h s where h is the event heap and s is the system*)
-    let rec step heap syst =
+    let rec step (syst, heap, hist)=
       match EventHeap.unloadEvents heap with
-        | EventHeap.EndSimulation -> ()
+        | EventHeap.EndSimulation -> hist
         | EventHeap.Events (h, now, eventList) ->
             let s = executeEvents ~eventList:eventList syst
             in let decisions = Sch.schedule now s
-            in let s, h = executeDecisions s h now decisions
-            in step h s
-    in step eventheap system
+            in step (executeDecisions s h now decisions hist)
+    in step (system, eventheap, hist)
 end
 
 (************************************** Stats ************************************)

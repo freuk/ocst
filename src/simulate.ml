@@ -30,23 +30,9 @@ let oneshot copts reservation backfill =
   in let module CSec = (val backfill:Metrics.Criteria)
   in let module Secondary = Easy.MakeGreedySecondary(CSec)(SchedulerParam)
   in let module Scheduler = Easy.MakeEasyScheduler(Primary)(Secondary)(SchedulerParam)
-  in let output_channel = BatOption.map open_out copts.swf_out
-  and output_channel_bf = BatOption.map open_out copts.backfill_out
-  in try 
-    let module S =
-    Engine.MakeSimulator(Scheduler)
-      (struct include SchedulerParam
-         let output_channel = output_channel
-         let output_channel_bf = output_channel_bf
-       end)
-         in S.simulate h s
-  with e ->
-    begin
-      BatOption.may close_out_noerr output_channel;
-      BatOption.may close_out_noerr output_channel_bf;
-      raise e;
-    end;
-
+  in let module S =
+    Engine.MakeSimulator(Scheduler)(struct include SchedulerParam end)
+  in Io.hist_to_swf job_table copts.swf_out (S.simulate h s [])
 
 (*type mixingType = Probabilistic | Scorebased*)
 (*let mixingList = *)

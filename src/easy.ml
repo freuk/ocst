@@ -47,12 +47,13 @@ module MakeGreedySecondary
   (S:SchedulerParam)
   : Secondary =
 struct
-  let is_eligible ~freeNow:r ~freeResa:r' ~resaWait:t ~id:id =
+
+  let is_eligible ~freeNow:r ~freeResa:r' ~resaWait:t ~q:q ~p_est:p_est =
     assert (t>0);
     assert (r>=0);
     assert (r'>=0);
-    let j = Hashtbl.find S.jobs id
-    in j.q <= (min r' r) || (j.q <= r && j.p_est <= t)
+    q <= (min r' r) || (q <= r && p_est <= t)
+
   let crit = C.criteria S.jobs
 
   let pick
@@ -63,13 +64,24 @@ struct
         ~reservationID:resjob
         ~reservationFree:free'
         ~freeNow:free =
-    let picknext (f, f', picked) i = 
-      (f,f',picked)
+    let rec picknext f f' picked = function
+      |[] -> picked
+      |i::is ->
+          let j = Hashtbl.find S.jobs i
+          in let is_shorter = j.p_est <= restime
+          in if (j.q <= (min f f') || (j.q <= f && is_shorter )) then
+            picknext
+              (f-j.q)
+              (f' - (if not is_shorter then j.q else 0))
+              (i::picked)
+              is
+          else
+            picknext f f' picked is
     and sorted =
       let comp i1 i2 = compare (crit s now i2) (crit s now i1)
       in List.sort comp bfable
-    in let _,_,r = List.fold_left picknext (free,free',[]) sorted
-    in r
+    in picknext free free' [] sorted
+
 (*let j = Hashtbl.find S.jobs fj idpicked*)
 (*in let res = j.q*)
 (*in let runt = j.p_est*)
@@ -141,8 +153,8 @@ struct
           in let backfilled =
             Secondary.pick ~system:s ~now:now ~backfillable:rest
               ~reservationWait:resaWait ~reservationID:id ~reservationFree:resaFree
-              ~freeNow:resaFree
-          in decision @  backfilled
+              ~freeNow:free
+          in decision @ backfilled
 end
 
 (*examples:*)

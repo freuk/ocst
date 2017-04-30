@@ -90,7 +90,7 @@ struct
       EventHeap.insert h {time = now+j.p; id=i; event_type=Finish}
     in List.fold_left f (s,h) jobList
 
-  let simulate (eventheap:EventHeap.t) (system:system) =
+  let simulate (eventheap:EventHeap.t) (system:system) (hist:history)=
     (*step h s where h is the event heap and s is the system*)
     let rec step heap syst =
       match EventHeap.unloadEvents heap with

@@ -32,7 +32,9 @@ let oneshot copts reservation backfill =
   in let module Scheduler = Easy.MakeEasyScheduler(Primary)(Secondary)(SchedulerParam)
   in let module S =
     Engine.MakeSimulator(Scheduler)(struct include SchedulerParam end)
-  in Io.hist_to_swf job_table copts.swf_out (S.simulate h s [])
+  in let hist =(S.simulate h s [])
+  in (Io.hist_to_swf job_table copts.swf_out hist;
+     Statistics.print_allstats stdout job_table hist)
 
 (*type mixingType = Probabilistic | Scorebased*)
 (*let mixingList = *)

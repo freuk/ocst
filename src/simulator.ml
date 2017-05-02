@@ -35,7 +35,7 @@ let copts_t =
     Arg.(value & opt int 0 & info ["max_procs"] ~docv:"MAXPROCS" ~docs ~doc)
   in let stats =
     let statdescs = String.concat ", " (List.map fst Statistics.allStats)
-    in let doc = ("Specify statistics output. Available: "^statdescs) in
+    in let doc = ("Specify statistics output. You may use a comma-separated list of arguments among: "^statdescs) in
     Arg.(value & opt (list ~sep:',' (enum Statistics.allStats)) [BatList.assoc "avgwait" Statistics.allStats] & info ["stat"] ~docv:"STAT" ~docs ~doc)
   in let swf_out =
     let doc = "Specify output swf file." in
@@ -111,22 +111,22 @@ let help_cmd =
   (*Term.(const Simulate.threshold $ copts_t $ reservation $ backfill $ objective $ threshold),*)
   (*Term.info "threshold" ~doc ~sdocs:docs ~man*)
 
-let oneshot_cmd =
+let simulate_cmd =
   let docs = copts_sect
   in let reservation =
     let doc = "Reservation type." in
-    Arg.(required & pos 1 (some (enum Metrics.criteriaList)) None & info [] ~docv:"RESERVATION" ~doc)
+    Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "fcfs" Metrics.criteriaList) & info ["reservation"] ~docv:"RESERVATION" ~doc)
   in let backfill =
     let doc = "Backfilling type." in
     Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "fcfs" Metrics.criteriaList) & info ["backfill"] ~docv:"BACKFILL" ~doc)
   in
-  let doc = "Simulates the run of a classic EASY backfilling scheduler using a given reservation and backfill order." in
+  let doc = "Simulates the run of a classic EASY backfilling scheduler using fixed reservation and backfill policies." in
   let man =
     [`S "DESCRIPTION";
      `P doc] @ help_secs
   in
   Term.(const Simulate.oneshot $ copts_t $ reservation $ backfill ),
-  Term.info "oneshot" ~doc ~sdocs:docs ~man
+  Term.info "simulate" ~doc ~sdocs:docs ~man
 
 (*let bandit_random_cmd =*)
   (*let docs = copts_sect*)
@@ -197,8 +197,8 @@ let oneshot_cmd =
   (*Term.(const Simulate.bandit $ copts_t $ explo $ rewardType $ period  $ backfill $ threshold $ policies $ reset_out $ clairvoyant $ noisy $ select_out $ clvOut),*)
   (*Term.info "bandit-onpolicy" ~doc ~sdocs:docs ~man*)
 
-(*let cmds = [mixed_cmd;bandit_random_cmd;bandit_cmd; oneshot_cmd; threshold_cmd; help_cmd]*)
-let cmds = [oneshot_cmd; help_cmd]
+(*let cmds = [mixed_cmd;bandit_random_cmd;bandit_cmd; simulate_cmd; threshold_cmd; help_cmd]*)
+let cmds = [simulate_cmd; help_cmd]
 
 let default_cmd =
   let doc = "a backfilling simulator" in

@@ -111,7 +111,7 @@ let help_cmd =
   (*Term.(const Simulate.threshold $ copts_t $ reservation $ backfill $ objective $ threshold),*)
   (*Term.info "threshold" ~doc ~sdocs:docs ~man*)
 
-let simulate_cmd =
+let fixed_cmd =
   let docs = copts_sect
   in let reservation =
     let doc = "Reservation type." in
@@ -125,7 +125,24 @@ let simulate_cmd =
     [`S "DESCRIPTION";
      `P doc] @ help_secs
   in
-  Term.(const Simulate.oneshot $ copts_t $ reservation $ backfill ),
+  Term.(const Simulate.fixed $ copts_t $ reservation $ backfill ),
+  Term.info "simulate" ~doc ~sdocs:docs ~man
+
+let mixed_cmd =
+  let docs = copts_sect
+  in let alpha =
+    let doc = "Mixing parameter for the primary policy." in
+    Arg.(value & opt (list ~sep:',' float) Metrics.zeroMixed & info ["alpha"] ~docv:"ALPHA" ~doc)
+  in let backfill =
+    let doc = "Backfilling type." in
+    Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "fcfs" Metrics.criteriaList) & info ["backfill"] ~docv:"BACKFILL" ~doc)
+  in
+  let doc = "Simulates the run of a classic EASY backfilling scheduler using fixed reservation and backfill policies." in
+  let man =
+    [`S "DESCRIPTION";
+     `P doc] @ help_secs
+  in
+  Term.(const Simulate.mixed $ copts_t $ alpha $ backfill ),
   Term.info "simulate" ~doc ~sdocs:docs ~man
 
 (*let bandit_random_cmd =*)
@@ -198,7 +215,7 @@ let simulate_cmd =
   (*Term.info "bandit-onpolicy" ~doc ~sdocs:docs ~man*)
 
 (*let cmds = [mixed_cmd;bandit_random_cmd;bandit_cmd; simulate_cmd; threshold_cmd; help_cmd]*)
-let cmds = [simulate_cmd; help_cmd]
+let cmds = [fixed_cmd; mixed_cmd; help_cmd]
 
 let default_cmd =
   let doc = "a backfilling simulator" in

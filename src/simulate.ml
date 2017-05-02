@@ -19,7 +19,7 @@ let copts swf_in swf_out max_procs debug seed stats =
   Random.init seed;
   {swf_in; swf_out; max_procs; debug; stats}
 
-let oneshot copts reservation backfill =
+let fixed copts reservation backfill = 
   let job_table,max_procs,h,s =
     let jt,mp = Io.parse_jobs copts.swf_in
     in let real_mp = max mp copts.max_procs
@@ -40,6 +40,10 @@ let oneshot copts reservation backfill =
       in let stv = List.map (fun s -> (f s) job_table hist) copts.stats
       in let sts = String.concat "," (List.map (Printf.sprintf "%0.3f") stv)
       in Printf.printf "%s" sts)
+
+let mixed copts alpha backfill =
+  (*generate 'reservation'*)
+  fixed copts reservation backfill
 
 (*type mixingType = Probabilistic | Scorebased*)
 (*let mixingList = *)

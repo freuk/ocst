@@ -74,16 +74,63 @@ let criteriaList =
     ("laf", (module LAF : Criteria));
     ("saf", (module SAF : Criteria))]
 
+module type ParamMixing = sig
+  val alpha : float list
+end
+
+let rawPolicyList = [SPF.criteria;
+                     SQF.criteria;
+                     FCFS.criteria;
+                     LRF.criteria;
+                     LAF.criteria;
+                     ExpFact.criteria]
+let zeroMixed = BatList.map (fun _ -> 0.) rawPolicyList
+
+module MakeMixedMetric(P:ParamMixing)(SP:SystemParam) : Criteria =
+struct
+
+  let makeStat (jobList: int list) =
+   List.map float_of_int
+   ( [List.length jobList;
+    makesum (fun x -> x.q) jobList;
+    makesum (fun x -> x.p_est) jobList;
+    List.fold_left (fun acc i -> ((Jobs.find P.jobs i).q * (Jobs.find P.jobs i).p_est) +acc) 0 jobList])
+
+  let makeVector now : float array =
+     let l =
+        [float_of_int P.resourcestate.free] @
+         makeStat (List.map snd P.resourcestate.jobs_running_list) @
+         makeStat !P.waitqueue
+     in Array.of_list l
+
+  let makeSystemFeatureValues s = [float_of_int s.free] @ FtUtil.makeStat !SP.waitqueue
+
+  let () = 
+   let systemDim = List.length (makeSystemFeatureValues ())
+   in let expected = baseDim + systemDim * baseDim
+      and real = List.length P.alpha
+   in if (not (real = expected)) then
+     begin
+       Printf.printf "real vector size %d, expected %d;\n" real expected;
+       Printf.printf "baseDim %d systemDim %d\n" baseDim systemDim;
+       assert (real=expected)
+     end
+
+  let desc = "Mixed metric."
+  let criteria j n i = 
+    let jobFeatureValues = List.map (fun crit -> crit j n i) rawPolicyList
+    and systemFeatureValues = makeSystemFeatureValues ()
+    in let attributeList = 
+      jobFeatureValues @
+      (List.map (fun (x,y) -> x *. y) (BatList.cartesian_product jobFeatureValues systemFeatureValues)) 
+    in List.fold_left2 (fun s weight x -> s +. (weight *. x)) 0. P.alpha attributeList
+end
+
+
 (*module type Threshold = sig*)
   (*val threshold : float*)
 (*end*)
 
-(*let rawPolicyList = [CriteriaSPF.criteria;*)
-                     (*CriteriaSQF.criteria;*)
-                     (*CriteriaWait.criteria;*)
-                     (*CriteriaLRF.criteria;*)
-                     (*CriteriaLAF.criteria;*)
-                     (*CriteriaExpFact.criteria]*)
 (*let zeroMixed = List.map (fun _ -> 0.) rawPolicyList*)
 (*let makeProduct cl x y z = ((List.hd cl) x y z) *. ((List.nth cl 1) x y z)*)
 (*let makeSquare c = makeProduct [c;c]*)
@@ -109,35 +156,6 @@ let criteriaList =
 
 (*let baseDim = List.length rawPolicyList*)
 
-(*module MakeMixedMetric(P:ParamMixing)(SP:SystemParam) : Criteria =*)
-(*struct*)
-
-  (*module  FtUtil = Features.MakeFeatureUtil(SP)*)
-
-  (*let makeSystemFeatureValues () = [float_of_int SP.resourcestate.free] @*)
-      (*FtUtil.makeStat !SP.waitqueue*)
-
-  (*let () = *)
-   (*let systemDim = List.length (makeSystemFeatureValues ())*)
-   (*in let expected = baseDim + systemDim * baseDim*)
-      (*and real = List.length P.alpha*)
-   (*in if (not (real = expected)) then*)
-     (*begin*)
-       (*Printf.printf "real vector size %d, expected %d;\n" real expected;*)
-       (*Printf.printf "baseDim %d systemDim %d\n" baseDim systemDim;*)
-       (*assert (real=expected)*)
-     (*end*)
-
-  (*let desc = "Mixed metric."*)
-  (*let criteria j n i = *)
-    (*let jobFeatureValues = List.map (fun crit -> crit j n i) rawPolicyList*)
-    (*and systemFeatureValues = makeSystemFeatureValues ()*)
-    (*in let attributeList = *)
-      (*jobFeatureValues @*)
-      (*(List.map (fun (x,y) -> x *. y) (BatList.cartesian_product jobFeatureValues systemFeatureValues)) *)
-    (*in List.fold_left2 (fun s weight x -> s +. (weight *. x)) 0. P.alpha attributeList*)
-(*end*)
-
 (*module MakeThresholdedCriteria (T:Threshold)(O:Criteria)(C:Criteria) : Criteria =*)
 (*struct*)
   (*let desc=(Printf.sprintf "%0.3f-Thresholded " T.threshold) ^ C.desc*)
@@ -152,6 +170,3 @@ let criteriaList =
 
 (*module MakeBsdlAccumulator = Make2MetricAccumulator(CriteriaBSLD)*)
 
-(*module type ParamMixing = sig*)
-  (*val alpha : float list*)
-(*end*)

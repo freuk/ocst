@@ -34,19 +34,16 @@ let copts_t =
     let doc = "Enforce max_procs value." in
     Arg.(value & opt int 0 & info ["max_procs"] ~docv:"MAXPROCS" ~docs ~doc)
   in let stats =
-    let statdescs = String.concat " " (List.map fst Statistics.allStats)
+    let statdescs = String.concat ", " (List.map fst Statistics.allStats)
     in let doc = ("Specify statistics output. Available: "^statdescs) in
-    Arg.(value & opt (enum Statistics.allStats) (BatList.assoc "avgwait" Statistics.allStats) & info ["stat"] ~docv:"STAT" ~doc)
+    Arg.(value & opt (list ~sep:',' (enum Statistics.allStats)) [BatList.assoc "avgwait" Statistics.allStats] & info ["stat"] ~docv:"STAT" ~docs ~doc)
   in let swf_out =
     let doc = "Specify output swf file." in
     Arg.(value & opt (some string) None & info ["output"] ~docv:"OUTPUT" ~docs ~doc)
-  in let backfill_out =
-    let doc = "Specify output backfilling data file." in
-    Arg.(value & opt (some string) None & info ["boutput"] ~docv:"BOUTPUT" ~docs ~doc)
   in let swf_in =
     let doc = "Input swf file." in
     Arg.(required & pos 0 (some file) None & info [] ~docv:"SWFINPUT" ~doc)
-  in Term.(const copts $ swf_in $ swf_out $ backfill_out $ max_procs $ debug $ seed $ stats)
+  in Term.(const copts $ swf_in $ swf_out $  max_procs $ debug $ seed $ stats)
 
 let help_cmd =
   let topic =

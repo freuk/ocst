@@ -16,7 +16,7 @@ let statList : jobstatlist = [
 ]
 
 let allStats =
-  let (cumStatList:tracestatlist), (avgStatList:tracestatlist) =
+  let allStatList =
     let cumulative_metric metric jobs hist =
       let f s (i,t)=
         let j = Hashtbl.find jobs i
@@ -24,14 +24,15 @@ let allStats =
       in List.fold_left f 0. hist
     in let average_metric metric jobs hist =
       (cumulative_metric metric jobs hist) /. (float_of_int (max 1 (List.length hist)))
-    in List.map (fun (s,x) -> ("cum"^s, cumulative_metric x)) statList,
-       List.map (fun (s,x) -> ("avg"^s, average_metric x)) statList
+    (*and geometric_metric metric jobs hist =*)
+      (*let f s (i,t)=*)
+        (*let j = Hashtbl.find jobs i*)
+        (*in s *.  (1. +. (metric t j))*)
+      (*in sqrt ( List.fold_left f 1. hist)*)
+    (*in List.map (fun (s,x) -> ("cum"^s, geometric_metric x)) statList*)
+    in List.map (fun (s,x) -> ("avg"^s, average_metric x)) statList
+    @ List.map (fun (s,x) -> ("cum"^s, cumulative_metric x)) statList
   and modularize (desc,f) =
     let module M = struct let desc = desc let stat = f end
     in (desc,(module M:Stat))
-    in List.map modularize (cumStatList @ avgStatList)
-
-
-(*let print_allstats chan jobs hist=*)
-  (*let f (s, m) = Printf.fprintf chan "%s %0.3f\n" s (metric jobs hist)*)
-  (*in List.map f allStats*)
+    in List.map modularize allStatList

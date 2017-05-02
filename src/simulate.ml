@@ -14,10 +14,11 @@ type copts = {
   swf_out : string option;
   backfill_out : string option;
   max_procs : int;
+  stats : (module Statistics.Stat);
   debug : bool}
-let copts swf_in swf_out backfill_out max_procs debug seed =
+let copts swf_in swf_out backfill_out max_procs debug seed stats =
   Random.init seed;
-  {swf_in; swf_out; backfill_out; max_procs; debug}
+  {swf_in; swf_out; backfill_out; max_procs; debug; stats}
 
 let oneshot copts reservation backfill =
   let job_table,max_procs,h,s =
@@ -33,8 +34,9 @@ let oneshot copts reservation backfill =
   in let module S =
     Engine.MakeSimulator(Scheduler)(struct include SchedulerParam end)
   in let hist =(S.simulate h s [])
+  in let module Stat = (val copts.stats:Statistics.Stat)
   in (Io.hist_to_swf job_table copts.swf_out hist;
-     Statistics.print_allstats stdout job_table hist)
+     Printf.printf "%0.3f" (Stat.stat job_table hist))
 
 (*type mixingType = Probabilistic | Scorebased*)
 (*let mixingList = *)

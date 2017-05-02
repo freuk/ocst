@@ -1,23 +1,37 @@
 open System
 
-let wait t j = float_of_int (t-j.r)
-let stretch t j= (float_of_int (t-j.r+j.p)) /. (float_of_int (max 1 j.p))
-let stretch t j= (float_of_int (t-j.r+j.p)) /. (float_of_int (max 1 j.p))
+type jobstatlist = (string * (int -> job -> float)) list
+type tracestatlist = (string * (System.job_table -> Engine.history -> float)) list
 
-let cumulative_metric metric jobs hist = 
-  let f s (i,t)=
-    let j = Hashtbl.find jobs i
-    in s +. (metric t j)
-  in List.fold_left f 0. hist
+module type Stat = sig
+  val desc : string
+  val stat : System.job_table -> Engine.history -> float
+end
 
-let average_metric metric jobs hist = 
-  (cumulative_metric metric jobs hist) /. (float_of_int (max 1 (List.length hist)))
+let statList : jobstatlist = [
+  ("wait", fun t j -> float_of_int (t-j.r));
+  ("stretch", fun t j -> (float_of_int (t-j.r+j.p)) /. (float_of_int (max 1 j.p)));
+  ("bsld", fun t j -> max 1. ((float_of_int (t-j.r+j.p)) /. (float_of_int (max 60 j.p))));
+  ("ppsld", fun t j -> max 1. ((float_of_int (t-j.r+j.p)) /. (float_of_int (j.q * (max 60 j.p)))));
+]
 
-let print_allstats chan jobs hist= 
-  let f s1 metric s2  = Printf.fprintf chan "%s %s %0.3f\n" s1 s2 (metric jobs hist)
-  in let f_cum s m = 
-    (f "cumulative" (cumulative_metric m) s;
-    f "average" (average_metric m) s)
-  in 
-    f_cum "waiting time" wait;
-    f_cum "stretch" stretch
+let allStats =
+  let (cumStatList:tracestatlist), (avgStatList:tracestatlist) =
+    let cumulative_metric metric jobs hist =
+      let f s (i,t)=
+        let j = Hashtbl.find jobs i
+        in s +. (metric t j)
+      in List.fold_left f 0. hist
+    in let average_metric metric jobs hist =
+      (cumulative_metric metric jobs hist) /. (float_of_int (max 1 (List.length hist)))
+    in List.map (fun (s,x) -> ("cum"^s, cumulative_metric x)) statList,
+       List.map (fun (s,x) -> ("avg"^s, average_metric x)) statList
+  and modularize (desc,f) =
+    let module M = struct let desc = desc let stat = f end
+    in (desc,(module M:Stat))
+    in List.map modularize (cumStatList @ avgStatList)
+
+
+(*let print_allstats chan jobs hist=*)
+  (*let f (s, m) = Printf.fprintf chan "%s %0.3f\n" s (metric jobs hist)*)
+  (*in List.map f allStats*)

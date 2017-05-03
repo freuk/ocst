@@ -66,8 +66,9 @@ end
 module MakeSimulator
   (Sch:Easy.Scheduler)
   (P:SimulatorParam)
-  :Simulator =
+  :Simulator with type log = Sch.log
 struct
+  type log = Sch.log
   (*apply some events' effect on the system; this can be optimized.*)
   let executeEvents ~eventList:el system=
     let execute s (e:EventHeap.elem) =
@@ -92,16 +93,16 @@ struct
       ,(i,now)::hist
     in List.fold_left f (system,heap,history) jobList
 
-  let simulate (eventheap:EventHeap.t) (system:system) (hist:history)=
+  let simulate (eventheap:EventHeap.t) (system:system) (hist:history) (log:log)=
     (*step h s where h is the event heap and s is the system*)
-    let rec step (syst, heap, hist)=
+    let rec step (syst, heap, hist, log)=
       match EventHeap.unloadEvents heap with
         | EventHeap.EndSimulation -> hist
         | EventHeap.Events (h, now, eventList) ->
             let s = executeEvents ~eventList:eventList syst
-            in let decisions = Sch.schedule now s
+            in let decisions, log = Sch.schedule now s
             in step (executeDecisions s h now decisions hist)
-    in step (system, eventheap, hist)
+    in step (system, eventheap, hist, log)
 end
 
 (************************************** Stats ************************************)

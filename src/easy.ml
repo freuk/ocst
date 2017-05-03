@@ -1,5 +1,8 @@
 open System
 
+(*util*)
+let compose_binop f g = fun x y -> f (g x) (g y)
+
 (*************************** Common parameter *************************************)
 module type SchedulerParam = sig
   val jobs : job_table
@@ -22,9 +25,11 @@ module MakeGreedyPrimary
   : Primary =
 struct
   let crit = C.criteria S.jobs
-  let reorder ~system:s ~now:now =
-    let comp i1 i2 = compare (crit s now i2) (crit s now i1)
-    in List.sort comp
+  let reorder ~system:s ~now:now ~log:log =
+    let lv = List.map (fun i -> (i,crit s now i)) s.waiting
+    in 
+      lv |> (List.map snd) |> (List.map snd) |> c.combine_log log,
+      lv |> list.sort (compose_binop (fun x -> fst (snd x)) comp) |> List.map fst
 end
 
 (**** Backfilling Selector ****)
@@ -139,8 +144,9 @@ struct
     in fits free projected
 
 
-  let schedule now s =
-    match get_easy s.free (Primary.reorder s now s.waiting) with
+  let schedule now s log =
+    let log, reordered = Primary.reorder ~s:s ~now:now ~log:log
+    in match get_easy s.free reordered with
       | Simple decision                     -> decision
       | Backfill (decision, _, _, [])       -> decision
       | Backfill (decision, free, id, rest) ->
@@ -154,22 +160,8 @@ struct
             Secondary.pick ~system:s ~now:now ~backfillable:rest
               ~reservationWait:resaWait ~reservationID:id ~reservationFree:resaFree
               ~freeNow:free
-          in decision @ backfilled
+          in (decision @ backfilled), log
 end
-
-(*examples:*)
-(*module MakeEasyGreedy(CR:Criteria)(CB:Criteria)(P:SchedulerParam) =*)
-  (*MakeEasyScheduler(MakeGreedyPrimary(P)(CR))(MakeGreedySecondary(CB)(P))(P)*)
-
-(*module MakeEasyEpsRandGreedy (E:EpsGreedyParameter)(CR:Criteria)(CB:Criteria)(P:SchedulerParam) =*)
-(*MakeEasyScheduler(MakeGreedyPrimary(P)(CR))(MakeEpsGreedySecondary(E)(CB)(P))(P)*)
-
-(*module MakeEasyRandom (CR:Criteria)(P: SchedulerParam) =*)
-(*MakeEasyScheduler(MakeGreedyPrimary(P)(CR))(RandomSecondary)(P)*)
-
-(*module MakeEasyHRandom(C1:Criteria)(C2:Criteria)(CR:Criteria)(P: SchedulerParam) =*)
-(*MakeEasyScheduler(MakeGreedyPrimary(P)(CR))(MakeRandomHeuristicSecondary(C1)(C2)(P))(P)*)
-
 
 (*module MakeBernouilliPrimary*)
 (*(BP:BernouilliReservatorParam)*)

@@ -120,30 +120,36 @@ let fixed_cmd =
     let doc = "Backfilling type." in
     Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "fcfs" Metrics.criteriaList) & info ["backfill"] ~docv:"BACKFILL" ~doc)
   in
-  let doc = "Simulates the run of a classic EASY backfilling scheduler using fixed reservation and backfill policies." in
+  let doc = "Simulates the run of a classic EASY backfilling scheduler using both static reservation and backfill policies." in
   let man =
     [`S "DESCRIPTION";
      `P doc] @ help_secs
   in
   Term.(const Simulate.fixed $ copts_t $ reservation $ backfill ),
-  Term.info "simulate" ~doc ~sdocs:docs ~man
+  Term.info "fixed" ~doc ~sdocs:docs ~man
 
 let mixed_cmd =
   let docs = copts_sect
   in let alpha =
-    let doc = "Mixing parameter for the primary policy." in
-    Arg.(value & opt (list ~sep:',' float) Metrics.zeroMixed & info ["alpha"] ~docv:"ALPHA" ~doc)
+    let doc = "Simple mixing parameters." in
+    Arg.(value & opt (some (list ~sep:',' float)) None & info ["alpha"] ~docv:"ALPHA" ~doc)
+  in let alpha_poly =
+    let doc = "Polynomial mixing parameters." in
+    Arg.(value & opt (some (list ~sep:',' float)) None & info ["alphapoly"] ~docv:"ALPHAPOLY" ~doc)
+  in let alpha_system =
+    let doc = "System mixing parameters." in
+    Arg.(value & opt (some (list ~sep:',' float)) None & info ["alphasystem"] ~docv:"ALPHAPOLY" ~doc)
   in let backfill =
     let doc = "Backfilling type." in
     Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "fcfs" Metrics.criteriaList) & info ["backfill"] ~docv:"BACKFILL" ~doc)
   in
-  let doc = "Simulates the run of a classic EASY backfilling scheduler using fixed reservation and backfill policies." in
+  let doc = "Simulates the run of a classic EASY backfilling scheduler using a mixed reservation and a static backfill policy." in
   let man =
     [`S "DESCRIPTION";
      `P doc] @ help_secs
   in
-  Term.(const Simulate.mixed $ copts_t $ alpha $ backfill ),
-  Term.info "simulate" ~doc ~sdocs:docs ~man
+  Term.(const Simulate.mixed $ copts_t $ backfill $ alpha $ alpha_poly $ alpha_system),
+  Term.info "mixed" ~doc ~sdocs:docs ~man
 
 (*let bandit_random_cmd =*)
   (*let docs = copts_sect*)

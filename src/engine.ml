@@ -40,6 +40,7 @@ end
 
 type history = (int*int) list (*list of (id,sub_time)*)
 
+
 (************************************** Engine ***********************************)
 (*TODO refactor. Statistics module*)
 module type Stat = sig
@@ -59,16 +60,15 @@ end
 
 (*simulator module*)
 module type Simulator = sig
-  val simulate : EventHeap.t -> system -> history -> history
+  val simulate : EventHeap.t -> system -> history -> log -> (history * log)
 end
 
 (*simulator building functor*)
 module MakeSimulator
   (Sch:Easy.Scheduler)
   (P:SimulatorParam)
-  :Simulator with type log = Sch.log
+  :Simulator =
 struct
-  type log = Sch.log
   (*apply some events' effect on the system; this can be optimized.*)
   let executeEvents ~eventList:el system=
     let execute s (e:EventHeap.elem) =
@@ -95,14 +95,15 @@ struct
 
   let simulate (eventheap:EventHeap.t) (system:system) (hist:history) (log:log)=
     (*step h s where h is the event heap and s is the system*)
-    let rec step (syst, heap, hist, log)=
+    let rec step syst heap hist log =
       match EventHeap.unloadEvents heap with
-        | EventHeap.EndSimulation -> hist
+        | EventHeap.EndSimulation -> (hist, log)
         | EventHeap.Events (h, now, eventList) ->
             let s = executeEvents ~eventList:eventList syst
-            in let decisions, log = Sch.schedule now s
-            in step (executeDecisions s h now decisions hist)
-    in step (system, eventheap, hist, log)
+            in let decisions, log = Sch.schedule now s log
+            in let s,h,hi = (executeDecisions s h now decisions hist)
+            in step s h hi log
+    in step system eventheap hist log
 end
 
 (************************************** Stats ************************************)

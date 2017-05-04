@@ -10,3 +10,8 @@ type system =
     }
 
 let emptySystemState maxprocs = { free = maxprocs; running = []; waiting = []; }
+
+(************************************** Criteria Log *****************************)
+
+type log = (float list) list (*list of (id,sub_time)*)
+

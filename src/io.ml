@@ -100,17 +100,30 @@ let printjob now j id output_channel =
         0         (* 17 Preceding Job Number           *)
         0         (* 18 Think Time From Preceding Job  *)
 
-let hist_to_swf jobs fn_o hist =
-  let g fn =
+let wrap_io filename_option printer=
+  let do_io fn =
     let c = open_out fn
-    in let f (i, t) = printjob t (Hashtbl.find jobs i) i c
     in try
-      List.iter f hist;
+      printer c;
       close_out c
     with e->
       close_out_noerr c;
       raise e
-  in BatOption.may g fn_o
+  in BatOption.may do_io filename_option
+
+let hist_to_swf jobs filename_option hist =
+  let printer chan =
+    let f (i, t) = printjob t (Hashtbl.find jobs i) i chan
+    in List.iter f hist
+  in wrap_io filename_option printer
+
+let log_to_file filename_option log =
+  let printer chan =
+    let f lf =
+      let strings = List.map (Printf.sprintf "%0.3f") lf
+      in Printf.fprintf chan "%s\n" (String.concat "," strings)
+    in List.iter f log
+  in wrap_io filename_option printer
 
 let printjob_shift r j id output_channel =
   Printf.fprintf output_channel
@@ -155,40 +168,40 @@ let parse_job (row:string) : int * job =
     id,j
   end
 
-let parse_jobs fn =
-  let jobs: job_table = Hashtbl.create 1000
-  in let parse_row maxprocs header jobs (row: string): unit =
-    if (String.contains row ';') then
-      begin
-        header:=!header@[row];
-        try
-          let re = Str.regexp_string "MaxProcs:"
-          in let () = ignore (Str.search_forward re row 0)
-          in let l = String.length row
-          in let s = String.sub row 12 (l-12)
-          in maxprocs := int_of_string(s)
-        with Not_found -> ();
-      end
+  let parse_jobs fn =
+    let jobs: job_table = Hashtbl.create 1000
+    in let parse_row maxprocs header jobs (row: string): unit =
+      if (String.contains row ';') then
+        begin
+          header:=!header@[row];
+          try
+            let re = Str.regexp_string "MaxProcs:"
+            in let () = ignore (Str.search_forward re row 0)
+            in let l = String.length row
+            in let s = String.sub row 12 (l-12)
+            in maxprocs := int_of_string(s)
+          with Not_found -> ();
+        end
     else
       let id,j=parse_job row
       in Hashtbl.add jobs id j;
-  in let ic=open_in fn
-  in let maxprocs = ref 0
-  in let () =
-    try
-      let header = ref []
-      in let line_stream_of_channel channel =
-        Stream.from
-          (fun _ ->
-             try Some (input_line channel) with End_of_file -> None)
-      in Stream.iter
-           (parse_row maxprocs header jobs)
-           (line_stream_of_channel ic);
-         close_in ic;
-    with e ->
-      close_in_noerr ic;
-      raise e;
-  in jobs, !maxprocs
+    in let ic=open_in fn
+    in let maxprocs = ref 0
+    in let () =
+      try
+        let header = ref []
+        in let line_stream_of_channel channel =
+          Stream.from
+            (fun _ ->
+               try Some (input_line channel) with End_of_file -> None)
+        in Stream.iter
+             (parse_row maxprocs header jobs)
+             (line_stream_of_channel ic);
+           close_in ic;
+      with e ->
+        close_in_noerr ic;
+        raise e;
+    in jobs, !maxprocs
 
 let do_io_perturbator () =
   let args = parse_perturbator_args ()

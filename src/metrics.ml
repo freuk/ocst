@@ -1,31 +1,40 @@
 open System
 
+type crit_output = Value of float | ValueLog of (float * (float list))
+let get_value = function
+  |Value v -> v
+  |ValueLog (v,_) -> v
+let value_of_int x = Value (float_of_int x)
+
+type criteria = job_table -> system -> int -> int -> crit_output
+
 module type Criteria = sig
-  type log
   val desc : string
-  val criteria : job_table -> system -> int -> int -> (float * log_entry)
-  val combine_log : log -> log_entry -> log
+  val criteria : criteria
 end
 
-module MakeMinus(C:Criteria) : Criteria with type log = C.log =
+module MakeMinus(C:Criteria) : Criteria =
 struct
   include C
   let desc = "L" ^ C.desc
-  let criteria j s n i = -. (criteria j s n i)
+  let criteria j s n i = match (criteria j s n i) with
+    |Value v -> Value (-. v)
+    |ValueLog (v,l) -> ValueLog ((-. v),l)
 end
 
 module BSLD = struct
   type log = float
   let desc="BSLD"
-  let criteria jobs _ now id = max 1.
-                               (float_of_int (now - (Hashtbl.find jobs id).r) /.
-                                max (float_of_int (Hashtbl.find jobs id).p_est) 600. )
+  let criteria jobs _ now id =
+    Value ( max 1.
+            (float_of_int (now - (Hashtbl.find jobs id).r) /.
+             max (float_of_int (Hashtbl.find jobs id).p_est) 600. ))
 end
 
 module FCFS = struct
   type log = float
   let desc="Waiting Time"
-  let criteria jobs _ now id = float_of_int (now - (Hashtbl.find jobs id).r)
+  let criteria jobs _ now id = Value (float_of_int (now - (Hashtbl.find jobs id).r))
 end
 
 module LCFS:Criteria = MakeMinus(FCFS)
@@ -33,35 +42,39 @@ module LCFS:Criteria = MakeMinus(FCFS)
 module SRF = struct
   type log = float
   let desc="P/Q ratio"
-  let criteria jobs _ now id = let j = Hashtbl.find jobs id in float_of_int j.p /. (float_of_int (max 1 j.q))
+  let criteria jobs _ now id =
+    let j = Hashtbl.find jobs id
+    in Value (float_of_int j.p /. (float_of_int (max 1 j.q)))
 end
 
 module LRF = MakeMinus(SRF)
 
 module SAF = struct
   let desc="Job maximum Area"
-  let criteria jobs _ now id = let j = Hashtbl.find jobs id in float_of_int (j.q * j.p_est)
+  let criteria jobs _ now id =
+    let j = Hashtbl.find jobs id
+    in Value (float_of_int (j.q * j.p_est))
 end
 
 module LAF = MakeMinus(SAF)
 
 module SQF = struct
   let desc="Resource Requirement"
-  let criteria jobs _ now id = float_of_int (Hashtbl.find jobs id).q
+  let criteria jobs _ now id = Value (float_of_int (Hashtbl.find jobs id).q)
 end
 
 module LQF = MakeMinus(SQF)
 
 module SPF = struct
   let desc="Processing time"
-  let criteria jobs _ now id = float_of_int (Hashtbl.find jobs id).p_est
+  let criteria jobs _ now id = Value (float_of_int (Hashtbl.find jobs id).p_est)
 end
 
 module LPF = MakeMinus(SPF)
 
 module LEXP = struct
   let desc="Expansion Factor"
-  let criteria jobs _ now id = (float_of_int (now - (Hashtbl.find jobs id).r + (Hashtbl.find jobs id).p_est)) /. float_of_int (Hashtbl.find jobs id).p_est
+  let criteria jobs _ now id = Value ((float_of_int (now - (Hashtbl.find jobs id).r + (Hashtbl.find jobs id).p_est)) /. float_of_int (Hashtbl.find jobs id).p_est)
 end
 
 module SEXP = MakeMinus(LEXP)
@@ -80,49 +93,18 @@ let criteriaList =
    ("laf", (module LAF : Criteria));
    ("saf", (module SAF : Criteria))]
 
-let features_job =
+(*************************************** FEATURES ***********************************)
+
+let features_job : criteria list =
   [SPF.criteria;
    SQF.criteria;
    FCFS.criteria;]
 
-let features_job_2 =
-  [LRF.criteria;
-   LAF.criteria;
-   LEXP.criteria;
-   fun jobs _ now id -> float_of_int (Hashtbl.find jobs id).p_est;]
+let multf (f:criteria) (g:criteria) : criteria =
+  fun j s n i ->
+    Value ((get_value (f j s n i)) *. (get_value (f j s n i)))
 
-let features_system = [fun j s n i -> float_of_int s.free;]
-
-let zeroMixed = BatList.map (fun _ -> 0.) features_job
-
-module MakeSum(C:Criteria)(C2:Criteria)=
-struct
-  let desc = "Polynomial Mixed metric."
-  let criteria j s n i = (C.criteria j s n i) +. (C2.criteria j s n i)
-end
-let makeSum m1 m2 =
-  let module M = (val m1:Criteria)
-  in let module M2 = (val m1:Criteria)
-  in let module Mr = MakeSum(M)(M2)
-  in (module Mr:Criteria)
-
-module type Alpha = sig
-  val alpha : float list
-end
-
-module MakeBasicMixed(P:Alpha): Criteria =
-struct
-  let desc = "Basic Mixed metric."
-  let criteria j s n i =
-    let attributeList = List.map (fun crit -> crit j s n i) features_job
-    in List.fold_left2 (fun s weight x -> s +. (weight *. x)) 0. P.alpha attributeList
-end
-let makeBasicMixed alpha =
-  let module M = MakeBasicMixed(struct let alpha = alpha end) in (module M:Criteria)
-
-module MakePolynomialMixed(P:Alpha): Criteria =
-struct
-  let desc = "Polynomial Mixed metric."
+let features_job_poly : criteria list  =
   let rec combnk k lst =
     let rec inner acc k lst =
       match k with
@@ -140,26 +122,72 @@ struct
                     inner newacc k xs
     in
       inner [] k lst
-  let criteria j s n i =
-    let atl = List.map (fun crit -> crit j s n i) features_job
-    in let polyAttrList = List.map (fun (x::xs) -> x *. List.hd xs) (combnk 2 atl)
-    in List.fold_left2 (fun s weight x -> s +. (weight *. x)) 0. P.alpha polyAttrList
-end
-let makePolynomialMixed alpha =
-  let module M = MakePolynomialMixed(struct let alpha = alpha end) in (module M:Criteria)
+  in
+    List.map (fun (x::xs) -> multf x (List.hd xs)) (combnk 2 features_job)
 
-module MakeSystemMixed(P:Alpha): Criteria =
+let features_system : criteria list =
+  [(fun _ s _ _ -> value_of_int s.free);
+   (fun _ s _ _ -> (value_of_int (List.length s.waiting)));]
+
+let features_system_job : criteria list  =
+  List.map (fun (x, y) -> multf x y)
+    (BatList.cartesian_product features_job features_system )
+
+let features_job_2 : criteria list  =
+  [LRF.criteria;
+   LAF.criteria;
+   LEXP.criteria;]
+
+module MakeSum(C:Criteria)(C2:Criteria)=
 struct
-  let desc = "System Mixed metric."
+  let desc = "Polynomial Mixed metric."
+  let criteria j s n i =
+    let f critf = match critf j s n i with
+      |Value v -> v,[v]
+      |ValueLog (v,l) ->  v,l
+    in let c1,l1 = f C.criteria
+    and c2,l2 = f C2.criteria
+    in ValueLog ((c1 +. c2), (l1@l2))
+end
+let makeSum m1 m2 =
+  let module M = (val m1:Criteria)
+  in let module M2 = (val m1:Criteria)
+  in let module Mr = MakeSum(M)(M2)
+  in (module Mr:Criteria)
+
+(*************************************** MIXING ***********************************)
+
+module type Alpha = sig
+  val alpha : (float list) * (float list) * (float list)
+  val ftlist : criteria list
+end
+
+module MakeMixed(P:Alpha): Criteria =
+struct
+  if (List.exists (fun x -> x = 0.) (BatTuple.Tuple3.third P.alpha)) then
+    failwith "The third parameter vector to the mixed heuristic can not have null elements."
+  let () = assert (List.length (BatTuple.Tuple3.first P.alpha) = List.length P.ftlist)
+  let () = assert (List.length (BatTuple.Tuple3.second P.alpha) = List.length P.ftlist)
+  let () = assert (List.length (BatTuple.Tuple3.third P.alpha) = List.length P.ftlist)
+  let desc = "Basic Mixed metric."
   let criteria j s n i =
     let attributeList =
-      let jl = List.map (fun crit -> crit j s n i) features_job
-      and sl = List.map (fun crit -> crit j s n i) features_system
-      in List.map (fun (x, y) -> x *. y) (BatList.cartesian_product jl sl)
-    in List.fold_left2 (fun s weight x -> s +. (weight *. x)) 0. P.alpha attributeList
+      List.map (fun crit -> get_value (crit j s n i)) P.ftlist
+    in let v =
+      let normalize l = l
+        |> (List.map2 (fun avg x -> x -. avg ) (BatTuple.Tuple3.second P.alpha))
+        |> (List.map2 (fun var x -> x /. var ) (BatTuple.Tuple3.third P.alpha))
+      in List.fold_left2 (fun s weight x -> s +. (weight *. x)) 0.
+         (BatTuple.Tuple3.first P.alpha) (normalize attributeList)
+    in ValueLog (v, attributeList)
 end
-let makeSystemMixed alpha =
-  let module M = MakeSystemMixed(struct let alpha = alpha end) in (module M:Criteria)
+let makeMixed ftlist alpha =
+  let module P = struct
+    let alpha = alpha
+    let ftlist = ftlist
+  end
+    in let module M = MakeMixed(P)
+    in (module M:Criteria)
 
 (*module type Threshold = sig*)
   (*val threshold : float*)

@@ -19,7 +19,7 @@ let copts swf_in swf_out max_procs debug seed stats =
   Random.init seed;
   {swf_in; swf_out; max_procs; debug; stats}
 
-let fixed ~criteria_out:log_fn copts reservation backfill =
+let run_simulator ?log_out:(log_out=None) copts reservation backfill =
   let job_table,max_procs,h,s =
     let jt,mp = Io.parse_jobs copts.swf_in
     in let real_mp = max mp copts.max_procs
@@ -32,8 +32,9 @@ let fixed ~criteria_out:log_fn copts reservation backfill =
   in let module Scheduler = Easy.MakeEasyScheduler(Primary)(Secondary)(SchedulerParam)
   in let module S =
     Engine.MakeSimulator(Scheduler)(struct include SchedulerParam end)
-  in let hist,log =(S.simulate h s [] Easy.empty_log)
+  in let hist,log =(S.simulate h s [] [])
   in (Io.hist_to_swf job_table copts.swf_out hist;
+      Io.log_to_file log_out log;
       let f s =
         let module M = (val s:Statistics.Stat)
         in M.stat
@@ -41,16 +42,19 @@ let fixed ~criteria_out:log_fn copts reservation backfill =
       in let sts = String.concat "," (List.map (Printf.sprintf "%0.3f") stv)
       in Printf.printf "%s" sts)
 
+let fixed copts reservation backfill =
+  run_simulator copts reservation backfill
+
 let mixed copts backfill feature_out alpha alpha_poly alpha_system =
   (*generate 'reservation'*)
   let m =
-    [ BatOption.map Metrics.makeBasicMixed alpha;
-      BatOption.map Metrics.makePolynomialMixed alpha_poly;
-      BatOption.map Metrics.makeSystemMixed alpha_system;]
+    [ BatOption.map (Metrics.makeMixed features_job)               alpha;
+      BatOption.map (Metrics.makeMixed features_job_poly)     alpha_poly;
+      BatOption.map (Metrics.makeMixed features_system_job) alpha_system;]
       |> List.filter BatOption.is_some
     |> List.map BatOption.get
     |> BatList.reduce Metrics.makeSum
-  in fixed ~criteria_out:feature_out copts m backfill
+  in run_simulator ~log_out:feature_out copts m backfill
 
 (*type mixingType = Probabilistic | Scorebased*)
 (*let mixingList = *)

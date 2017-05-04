@@ -13,10 +13,10 @@ end
 (**** Primary Selector ****)
 module type Primary = sig
   val reorder :
-    system:System.system ->        (*system state before primary jobs are started*)
-    now:int ->                     (*now*)
-    int list->                     (*jobs to reorder*)
-    int list
+    system:System.system ->  (*system state before primary jobs are started*)
+    now:int ->               (*now*)
+    log:System.log ->        (*log*)
+    (System.log * int list)
 end
 
 module MakeGreedyPrimary
@@ -26,10 +26,16 @@ module MakeGreedyPrimary
 struct
   let crit = C.criteria S.jobs
   let reorder ~system:s ~now:now ~log:log =
-    let lv = List.map (fun i -> (i,crit s now i)) s.waiting
-    in 
-      lv |> (List.map snd) |> (List.map snd) |> c.combine_log log,
-      lv |> list.sort (compose_binop (fun x -> fst (snd x)) comp) |> List.map fst
+    let lv =
+      let process_waiting i = match crit s now i with
+        |Value v -> (i,v,[])
+        |ValueLog (v,l) -> (i,v,l)
+      in List.map process_waiting s.waiting
+    in
+      lv |> List.fold_left (fun acc (i,_,x) -> 
+                              ((float_of_int now)::(float_of_int i)::x)::acc) log,
+      lv |> List.sort (compose_binop Pervasives.compare (fun (_,x,_) -> x)) 
+      |> List.map (fun (x,_,_) -> x) 
 end
 
 (**** Backfilling Selector ****)
@@ -99,7 +105,7 @@ end
 
 (************************************ Scheduler ***************************************)
 module type Scheduler = sig
-  val schedule : int -> System.system -> int list
+  val schedule : int -> System.system -> System.log -> ((int list) * System.log)
 end
 
 module MakeEasyScheduler
@@ -129,26 +135,26 @@ struct
   let reserve ~now:now ~free:free ~q:needed ~running:running ~decision:decision =
     let rec fits f = function
       | [] -> failwith "impossible to backfill this job. check MaxProcs."
-      | (t,i)::tis ->
-          let f' = f+ (fj i).q
-          in if f' >= needed then
-            let resaWait = t-now;
-            in ( assert ( resaWait > 0 ); ( resaWait, f'-needed ))
-            else
-              fits (f') tis
-    and projected =
-      let sort = (List.sort (fun (t,_) (t',_) -> compare t t'))
-      and project = (List.map (fun (t,i) -> (t+ (fj i).p_est,i)))
-      in (running @ (List.map (fun i -> (now,i)) decision))
-      |> project |> sort
+          | (t,i)::tis ->
+              let f' = f+ (fj i).q
+              in if f' >= needed then
+                let resaWait = t-now;
+                in ( assert ( resaWait > 0 ); ( resaWait, f'-needed ))
+                else
+                  fits (f') tis
+                    and projected =
+                      let sort = (List.sort (fun (t,_) (t',_) -> compare t t'))
+                      and project = (List.map (fun (t,i) -> (t+ (fj i).p_est,i)))
+                      in (running @ (List.map (fun i -> (now,i)) decision))
+          |> project |> sort
     in fits free projected
 
 
   let schedule now s log =
-    let log, reordered = Primary.reorder ~s:s ~now:now ~log:log
+    let log, reordered = Primary.reorder ~system:s ~now:now ~log:log
     in match get_easy s.free reordered with
-      | Simple decision                     -> decision
-      | Backfill (decision, _, _, [])       -> decision
+      | Simple decision                     -> (decision,log)
+      | Backfill (decision, _, _, [])       -> (decision,log)
       | Backfill (decision, free, id, rest) ->
           assert (free >= 0);
           let resaWait, resaFree =
@@ -160,7 +166,7 @@ struct
             Secondary.pick ~system:s ~now:now ~backfillable:rest
               ~reservationWait:resaWait ~reservationID:id ~reservationFree:resaFree
               ~freeNow:free
-          in (decision @ backfilled), log
+          in ((decision @ backfilled), log)
 end
 
 (*module MakeBernouilliPrimary*)

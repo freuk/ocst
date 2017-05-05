@@ -80,43 +80,45 @@ let fixed_cmd =
 let mixed_cmd =
   let docs = copts_sect
   and poldesc = String.concat ", " (List.map fst Metrics.criteriaList)
-  (*in let lalpha = *)
+   (*in let lalpha = *)
     (*let lcomma = Cmdliner.Arg.list ~sep:',' float*)
     (*in (some (t3 ~sep:';' lcomma lcomma lcomma))*)
-  in let alpha =
-    let doc =
-      let d = List.length Metrics.features_job
-      in Printf.sprintf "Simple mixing parameters. Three comma-separated vectors of dimension %d, each separated by the character +" d
-    in Arg.(value & opt (some (t3 ~sep:'+' (list ~sep:',' float)(list ~sep:',' float)(list ~sep:',' float))) None & info ["alpha"] ~docv:"ALPHA" ~doc)
-  in let alpha_advanced =
-    let doc =
-      let d = List.length Metrics.features_job_advanced
-      in Printf.sprintf "Advanced mixing parameters. Three comma-separated vectors of dimension %d, each separated by thecharacter +" d
-    in Arg.(value & opt (some (t3 ~sep:'+' (list ~sep:',' float)(list ~sep:',' float)(list ~sep:',' float))) None & info ["alphapoly"] ~docv:"ALPHAPOLY" ~doc)
-  in let alpha_system =
-    let doc =
-      let d = List.length Metrics.features_system_job
-      in Printf.sprintf "System mixing parameters. Three comma-separated vectors of dimension %d each, separated by thecharacter +" d
-    in Arg.(value & opt (some (t3 ~sep:'+' (list ~sep:',' float)(list ~sep:',' float)(list ~sep:',' float))) None & info ["alphasystem"] ~docv:"ALPHAPOLY" ~doc)
-  in let feature_out =
-    let doc = "Specify output feature file."
-    in Arg.(value & opt (some string) None & info ["ft_out"] ~docv:"FTFILE" ~doc)
-  in let backfill =
-    let doc = ("Backfilling policy among: "^poldesc) 
-    in  Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "fcfs" Metrics.criteriaList) & info ["backfill"] ~docv:"BACKFILL" ~doc)
-  in let proba = "Select a policy via sampling." in
-      Arg.(value & flag & info ["proba"] ~docs ~doc)
-  in let proba =
-    let s = String.concat "," (List.map fst Easy.sampling_types)
-    in Printf.sprintf "Sampling type. Available: %s" s 
-  in Arg.(value & flag & (enum Easy.sampling_types) Easy.Softmax ["sampling"] ~docs ~doc)
-  in let doc = "Simulates the run of a classic EASY backfilling scheduler using a mixed reservation and a static backfill policy."
-  in let man =
-    [`S "DESCRIPTION";
-     `P doc] @ help_secs
-  in
-    Term.(const Simulate.mixed $ copts_t $ backfill $ feature_out $ alpha $ alpha_advanced $ alpha_system $ proba $sampling),
-    Term.info "mixed" ~doc ~sdocs:docs ~man
+    in let alpha =
+      let doc =
+        let d = List.length Metrics.features_job
+        in Printf.sprintf "Simple mixing parameters. Three comma-separated vectors of dimension %d, each separated by the character +" d
+      in Arg.(value & opt (some (t3 ~sep:'+' (list ~sep:',' float)(list ~sep:',' float)(list ~sep:',' float))) None & info ["alpha"] ~docv:"ALPHA" ~doc)
+    in let alpha_advanced =
+      let doc =
+        let d = List.length Metrics.features_job_advanced
+        in Printf.sprintf "Advanced mixing parameters. Three comma-separated vectors of dimension %d, each separated by thecharacter +" d
+      in Arg.(value & opt (some (t3 ~sep:'+' (list ~sep:',' float)(list ~sep:',' float)(list ~sep:',' float))) None & info ["alphapoly"] ~docv:"ALPHAPOLY" ~doc)
+    in let alpha_system =
+      let doc =
+        let d = List.length Metrics.features_system_job
+        in Printf.sprintf "System mixing parameters. Three comma-separated vectors of dimension %d each, separated by thecharacter +" d
+      in Arg.(value & opt (some (t3 ~sep:'+' (list ~sep:',' float)(list ~sep:',' float)(list ~sep:',' float))) None & info ["alphasystem"] ~docv:"ALPHAPOLY" ~doc)
+    in let feature_out =
+      let doc = "Specify output feature file."
+      in Arg.(value & opt (some string) None & info ["ft_out"] ~docv:"FTFILE" ~doc)
+    in let backfill =
+      let doc = ("Backfilling policy among: "^poldesc)
+      in Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "fcfs" Metrics.criteriaList) & info ["backfill"] ~docv:"BACKFILL" ~doc)
+    in let proba =
+      let doc = "Select a policy via sampling."
+      in Arg.(value & flag & info ["proba"] ~docv:"PROBA" ~doc)
+    in let sampling =
+      let doc=
+        let s = String.concat "," (List.map fst Easy.sampling_types)
+        in Printf.sprintf "Sampling type. Available: %s" s
+      in Arg.(value & opt (enum Easy.sampling_types) Easy.Softmax & info ["sampling"] ~docv:"SAMPLING" ~doc)
+    in let doc = "Simulates the run of a classic EASY backfilling scheduler using a mixed reservation and a static backfill policy."
+    in let man =
+      [`S "DESCRIPTION";
+       `P doc] @ help_secs
+    in
+      Term.(const Simulate.mixed $ copts_t $ backfill $ feature_out $ alpha $ alpha_advanced $ alpha_system $ proba $sampling),
+      Term.info "mixed" ~doc ~sdocs:docs ~man
 
 (*let mixed_cmd =*)
 (*let docs = copts_sect*)

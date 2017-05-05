@@ -12,6 +12,7 @@ end
 
 (**** Primary Selector ****)
 module type Primary = sig
+  val desc : string
   val reorder :
     system:System.system ->  (*system state before primary jobs are started*)
     now:int ->               (*now*)
@@ -24,6 +25,7 @@ module MakeGreedyPrimary
   (S:SchedulerParam)
   : Primary =
 struct
+  let desc = C.desc
   let crit = C.criteria S.jobs
   let reorder ~system:s ~now:now ~log:log =
         let lv =
@@ -38,21 +40,24 @@ struct
       |> List.map (fun (x,_,_) -> x)
 end
 
-module type ProbaPolParam = sig
-  val sampling: sampling
-  val criterias = Metrics.criteria list
-end
-
+type sampling = Softmax | Linear
 let sampling_types = 
   [ ("softmax",Softmax);
     ("linear",Linear) ]
+module type ProbaPolParam = sig
+
+  val sampling :  sampling
+  val criterias : Metrics.criteria list
+  val alpha : float list
+end
 
 module MakeProbabilisticPrimary
   (P:ProbaPolParam)
   (S:SchedulerParam)
   : Primary =
 struct
-  let pick_random_weighted (l: (float*int) list) : int =
+  let desc = "probabilistic."
+  let pick_random_weighted l=
     let r = Random.float (float_of_int 1)
     in let rec nextrandom s i' = function
       |(p,i)::is when s +. p >= r -> i
@@ -60,29 +65,25 @@ struct
       |[]-> i'
     in nextrandom 0. (snd (List.hd l)) l
 
-  let reorder ~system:s ~now:now ~log:log job_list =
+  let reorder ~system:s ~now:now ~log:log =
     let probas = match P.sampling with
       |Softmax ->
-          let exp_alphas = (List.map exp alpha)
+          let exp_alphas = (List.map exp P.alpha)
           in let denom = BatList.fsum exp_alphas
           in List.map (fun x -> x /. denom) exp_alphas
       |Linear ->
-          let min_alphas = fst (BatList.min_max alpha)
-          in let scaled_alphas = List.map (fun x -> x-min_alphas) alpha
+          let min_alphas = fst (BatList.min_max P.alpha)
+          in let scaled_alphas = List.map (fun x -> x -. min_alphas) P.alpha
           in let denom = BatList.fsum scaled_alphas
           in List.map (fun x -> x /. (max 0.000001 denom)) scaled_alphas
-    in let crit = pick_random_weighted
-                 (BatList.map2
-                    (fun p i -> (p,i))
-                    probas
-                    P.criterias)
-                 )
+    in let crit = pick_random_weighted (BatList.map2 (fun p i -> (p,i)) probas P.criterias)
     in let process_waiting i = match crit S.jobs s now i with
       |Value v -> (i,v)
       |ValueLog (v,l) -> (i,v)
-    in List.map process_waiting job_list 
+    in let v = List.map process_waiting s.waiting
       |> List.sort (compose_binop Pervasives.compare snd) 
       |> List.map fst
+    in ([],v)
 end
 
 (**** Backfilling Selector ****)

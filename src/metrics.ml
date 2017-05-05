@@ -44,7 +44,7 @@ module SRF = struct
   let desc="P/Q ratio"
   let criteria jobs _ now id =
     let j = Hashtbl.find jobs id
-    in Value (float_of_int j.p /. (float_of_int (max 1 j.q)))
+    in Value (float_of_int j.p_est /. (float_of_int (max 1 j.q)))
 end
 
 module LRF = MakeMinus(SRF)
@@ -120,11 +120,13 @@ let features_job_advanced, features_system_job =
   in let ft_triangular_product ft_list =
     let rec triangle result = function
       |[] -> result
-      |(x::xs) -> triangle ((List.map (fun y -> (x,y)) (x::xs)) @ result) xs 
+      |(x::xs) -> triangle ((List.map (fun y -> (x,y)) (x::xs)) @ result) xs
     in List.map (fun (x, y) -> multf x y) (triangle [] ft_list)
   (*features*)
   in let features_system_job : (string*criteria) list =
-    let sum_zero accessor j =
+    let get_max accessor j =
+      List.fold_left (fun acc i -> max acc (accessor (Hashtbl.find j i)) ) 0
+    and sum_zero accessor j =
       List.fold_left (fun acc i -> accessor (Hashtbl.find j i) + acc ) 0
     and sum_elapsed now = List.fold_left (fun acc (ts,_) -> now - ts + acc ) 0
     and sum_remain now j =
@@ -138,6 +140,9 @@ let features_job_advanced, features_system_job =
     in let features_system =
       [("free",fun _ s _ _ -> value_of_int s.free);
        ("lwait",fun _ s _ _ -> (value_of_int (List.length s.waiting)));
+       ("maxw_queue",fun j s n _ -> value_of_int (get_max (fun j -> n-j.r) j s.waiting));
+       ("maxq_queue",fun j s _ _ -> value_of_int (get_max (fun j -> j.q) j s.waiting));
+       ("maxp_queue",fun j s _ _ -> value_of_int (get_max (fun j -> j.p_est) j s.waiting));
        ("sumw_queue",fun j s n _ -> value_of_int (sum_zero (fun j -> n-j.r) j s.waiting));
        ("sumq_queue",fun j s n _ -> value_of_int (sum_zero (fun j -> j.q) j s.waiting));
        ("sump_queue",fun j s n _ -> value_of_int (sum_zero (fun j -> j.p_est) j s.waiting));

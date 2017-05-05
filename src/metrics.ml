@@ -170,10 +170,6 @@ let features_job_advanced, features_system_job =
     [("exp",LEXP.criteria);]
   in (features_job_semantic@features_job_square@features_job_div@features_job_square_div@features_job_square_div2), features_system_job
 
-let () = Printf.printf "%s\n" (String.concat "," (List.map fst features_job))
-let () = Printf.printf "%s\n" (String.concat "," (List.map fst features_job_advanced))
-let () = Printf.printf "%s\n" (String.concat "," (List.map fst features_system_job))
-
 (*let features_job_2 : criteria list  =*)
 (*[LRF.criteria;*)
 (*LAF.criteria;*)

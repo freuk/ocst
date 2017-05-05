@@ -26,16 +26,63 @@ module MakeGreedyPrimary
 struct
   let crit = C.criteria S.jobs
   let reorder ~system:s ~now:now ~log:log =
-    let lv =
-      let process_waiting i = match crit s now i with
-        |Value v -> (i,v,[])
-        |ValueLog (v,l) -> (i,v,l)
-      in List.map process_waiting s.waiting
-    in
-      lv |> List.fold_left (fun acc (i,_,x) -> 
-                              ((float_of_int now)::(float_of_int i)::x)::acc) log,
-      lv |> List.sort (compose_binop Pervasives.compare (fun (_,x,_) -> x)) 
-      |> List.map (fun (x,_,_) -> x) 
+        let lv =
+          let process_waiting i = match crit s now i with
+            |Value v -> (i,v,[])
+            |ValueLog (v,l) -> (i,v,l)
+          in List.map process_waiting s.waiting
+        in
+          lv |> List.fold_left (fun acc (i,_,x) ->
+                                  ((float_of_int now)::(float_of_int i)::x)::acc) log,
+          lv |> List.sort (compose_binop Pervasives.compare (fun (_,x,_) -> x))
+      |> List.map (fun (x,_,_) -> x)
+end
+
+module type ProbaPolParam = sig
+  val sampling: sampling
+  val criterias = Metrics.criteria list
+end
+
+let sampling_types = 
+  [ ("softmax",Softmax);
+    ("linear",Linear) ]
+
+module MakeProbabilisticPrimary
+  (P:ProbaPolParam)
+  (S:SchedulerParam)
+  : Primary =
+struct
+  let pick_random_weighted (l: (float*int) list) : int =
+    let r = Random.float (float_of_int 1)
+    in let rec nextrandom s i' = function
+      |(p,i)::is when s +. p >= r -> i
+      |(p,i)::is -> nextrandom (s +. p) i is
+      |[]-> i'
+    in nextrandom 0. (snd (List.hd l)) l
+
+  let reorder ~system:s ~now:now ~log:log job_list =
+    let probas = match P.sampling with
+      |Softmax ->
+          let exp_alphas = (List.map exp alpha)
+          in let denom = BatList.fsum exp_alphas
+          in List.map (fun x -> x /. denom) exp_alphas
+      |Linear ->
+          let min_alphas = fst (BatList.min_max alpha)
+          in let scaled_alphas = List.map (fun x -> x-min_alphas) alpha
+          in let denom = BatList.fsum scaled_alphas
+          in List.map (fun x -> x /. (max 0.000001 denom)) scaled_alphas
+    in let crit = pick_random_weighted
+                 (BatList.map2
+                    (fun p i -> (p,i))
+                    probas
+                    P.criterias)
+                 )
+    in let process_waiting i = match crit S.jobs s now i with
+      |Value v -> (i,v)
+      |ValueLog (v,l) -> (i,v)
+    in List.map process_waiting job_list 
+      |> List.sort (compose_binop Pervasives.compare snd) 
+      |> List.map fst
 end
 
 (**** Backfilling Selector ****)
@@ -217,16 +264,6 @@ end
 (*module MakeRandomizedSecondary(C:Criteria)(P:SchedulerParam)*)
 (*:Secondary*)
 (*=struct*)
-  (*(* pick a random id from this list -- the non-emply list*)
-   (*should be in format [(proba,id);..] and the probabilities*)
-   (*should add to 1. *)*)
-  (*let pick_random_weighted (l: (float*int) list) : int =*)
-    (*let r = Random.float (float_of_int 1)*)
-    (*in let rec nextrandom s i' = function*)
-      (*|(p,i)::is when s +. p >= r -> i*)
-      (*|(p,i)::is -> nextrandom (s +. p) i is*)
-      (*|[]-> i'*)
-    (*in nextrandom 0. (snd (List.hd l)) l*)
 
   (*let selector (now:int) (bfable:int list) (restime:int) resjob resres =*)
     (*let weights : float list = List.map (C.criteria P.jobs now) bfable*)

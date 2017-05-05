@@ -45,16 +45,25 @@ let run_simulator ?log_out:(log_out=None) copts reservation backfill =
 let fixed copts reservation backfill =
   run_simulator copts reservation backfill
 
-let mixed copts backfill feature_out alpha alpha_poly alpha_system =
+let mixed copts backfill feature_out alpha alpha_poly alpha_system proba sampling=
   (*generate 'reservation'*)
-  let m =
-    [ BatOption.map (Metrics.makeMixed features_job)               alpha;
-      BatOption.map (Metrics.makeMixed features_job_advanced) alpha_poly;
-      BatOption.map (Metrics.makeMixed features_system_job) alpha_system;]
-      |> List.filter BatOption.is_some
-    |> List.map BatOption.get
-    |> BatList.reduce Metrics.makeSum
-  in run_simulator ~log_out:feature_out copts m backfill
+  if proba then
+    let module Pc
+          =struct
+            let sampling = sampling
+            let criterias =
+          end
+    in let M=Easy.MakeProbabilisticPrimary(Pc)
+    in run_simulator copts (module M:Criteria) backfill
+  else
+    let m =
+      [ BatOption.map (Metrics.makeMixed features_job)               alpha;
+        BatOption.map (Metrics.makeMixed features_job_advanced) alpha_poly;
+        BatOption.map (Metrics.makeMixed features_system_job) alpha_system;]
+        |> List.filter BatOption.is_some
+      |> List.map BatOption.get
+      |> BatList.reduce Metrics.makeSum
+    in run_simulator ~log_out:feature_out copts m backfill
 
 (*type mixingType = Probabilistic | Scorebased*)
 (*let mixingList = *)

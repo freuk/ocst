@@ -104,12 +104,18 @@ let mixed_cmd =
   in let backfill =
     let doc = ("Backfilling policy among: "^poldesc) 
     in  Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "fcfs" Metrics.criteriaList) & info ["backfill"] ~docv:"BACKFILL" ~doc)
+  in let proba = "Select a policy via sampling." in
+      Arg.(value & flag & info ["proba"] ~docs ~doc)
+  in let proba =
+    let s = String.concat "," (List.map fst Easy.sampling_types)
+    in Printf.sprintf "Sampling type. Available: %s" s 
+  in Arg.(value & flag & (enum Easy.sampling_types) Easy.Softmax ["sampling"] ~docs ~doc)
   in let doc = "Simulates the run of a classic EASY backfilling scheduler using a mixed reservation and a static backfill policy."
   in let man =
     [`S "DESCRIPTION";
      `P doc] @ help_secs
   in
-    Term.(const Simulate.mixed $ copts_t $ backfill $ feature_out $ alpha $ alpha_advanced $ alpha_system),
+    Term.(const Simulate.mixed $ copts_t $ backfill $ feature_out $ alpha $ alpha_advanced $ alpha_system $ proba $sampling),
     Term.info "mixed" ~doc ~sdocs:docs ~man
 
 (*let mixed_cmd =*)

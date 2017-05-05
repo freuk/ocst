@@ -95,44 +95,83 @@ let criteriaList =
 
 (*************************************** FEATURES ***********************************)
 
-let features_job : (string*criteria) list =
-  [("p",SPF.criteria);
-   ("q",SQF.criteria);
-   ("w",FCFS.criteria);]
+let feature_w =("w",FCFS.criteria)
+let feature_q =("q",SQF.criteria)
+let feature_p =("p",SPF.criteria)
 
-let features_job_poly, features_system_job =
-  let multf (f:string *criteria) (g:string*criteria) : (string*criteria) =
-    ((fst f)^"*"^(fst g)),
-    fun j s n i ->
-      Value ((get_value ((snd f) j s n i)) *. (get_value ((snd g) j s n i)))
-  and features_system : (string*criteria) list =
-    [("free",fun _ s _ _ -> value_of_int s.free);
-     ("lwait",fun _ s _ _ -> (value_of_int (List.length s.waiting)));]
-  in let features_job_poly : (string*criteria) list  =
-    let rec combnk k lst =
-      let rec inner acc k lst =
-        match k with
-          | 0 -> [[]]
-          | _ ->
-              match lst with
-                | []      -> acc
-                | x :: xs ->
-                    let rec accmap acc f = function
-                      | []      -> acc
-                      | x :: xs -> accmap ((f x) :: acc) f xs
-                    in
-                    let newacc = accmap acc (fun z -> x :: z) (inner [] (k - 1) xs)
-                    in
-                      inner newacc k xs
-      in
-        inner [] k lst
-    in List.map (fun (x::xs) -> multf x (List.hd xs)) (combnk 2 features_job)
-  and features_system_job : (string*criteria) list  =
-    List.map (fun (x, y) -> multf x y)
-      (BatList.cartesian_product features_job features_system)
-  in features_job_poly, features_system_job
+let features_job_mayzero : (string*criteria) list = [feature_w;]
+let features_job_nonzero : (string*criteria) list = [feature_q;feature_p]
+
+let features_job : (string*criteria) list = features_job_nonzero @ features_job_mayzero
+
+let features_job_advanced, features_system_job =
+  (*helpers*)
+  let divf (f:string *criteria) (g:string*criteria) : (string*criteria) =
+    let divcrit j s n i = Value ((get_value ((snd f) j s n i)) /. (get_value ((snd g) j s n i)))
+    in (((fst f)^"/"^(fst g)),divcrit)
+  and multf (f:string *criteria) (g:string*criteria) : (string*criteria) =
+    let mulcrit j s n i = Value ((get_value ((snd f) j s n i)) *. (get_value ((snd g) j s n i)))
+    in (((fst f)^"*"^(fst g)), mulcrit)
+  in let multf3 (f:string *criteria) (g:string*criteria) (h:string*criteria) : (string*criteria) =
+    let mulcrit j s n i = Value ((get_value ((snd f) j s n i)) *. (get_value ((snd g) j s n i))*. (get_value ((snd h) j s n i)))
+    in (((fst f)^"*"^(fst g)^"*"^(fst h)), mulcrit)
+  in let ft_cartesian_product l1 l2=
+    List.map (fun (x, y) -> multf x y) (BatList.cartesian_product l1 l2)
+  in let ft_triangular_product ft_list =
+    let rec triangle result = function
+      |[] -> result
+      |(x::xs) -> triangle ((List.map (fun y -> (x,y)) (x::xs)) @ result) xs 
+    in List.map (fun (x, y) -> multf x y) (triangle [] ft_list)
+  (*features*)
+  in let features_system_job : (string*criteria) list =
+    let sum_zero accessor j =
+      List.fold_left (fun acc i -> accessor (Hashtbl.find j i) + acc ) 0
+    and sum_elapsed now = List.fold_left (fun acc (ts,_) -> now - ts + acc ) 0
+    and sum_remain now j =
+      List.fold_left (fun acc (ts,i) -> (Hashtbl.find j i).p_est + ts -now + acc ) 0
+    and sum_elapsed_q now j =
+      List.fold_left (fun acc (ts,i) -> (Hashtbl.find j i).q * (now - ts) + acc ) 0
+    and sum_remain_q now j =
+      List.fold_left
+        (fun acc (ts,i) ->
+           (Hashtbl.find j i).q *((Hashtbl.find j i).p_est + ts -now) + acc ) 0
+    in let features_system =
+      [("free",fun _ s _ _ -> value_of_int s.free);
+       ("lwait",fun _ s _ _ -> (value_of_int (List.length s.waiting)));
+       ("sumw_queue",fun j s n _ -> value_of_int (sum_zero (fun j -> n-j.r) j s.waiting));
+       ("sumq_queue",fun j s n _ -> value_of_int (sum_zero (fun j -> j.q) j s.waiting));
+       ("sump_queue",fun j s n _ -> value_of_int (sum_zero (fun j -> j.p_est) j s.waiting));
+       ("sump_queue",fun j s n _ -> value_of_int (sum_zero (fun j -> j.p_est) j s.waiting));
+       ("sumpq_rem_run",fun j s n _ -> value_of_int (sum_remain n j s.running));
+       ("sumpq_elap_run",fun j s n _ -> value_of_int (sum_elapsed n  s.running));
+       ("sumpqq_rem_run",fun j s n _ -> value_of_int (sum_remain_q n j s.running));
+       ("sumpqq_elap_run",fun j s n _ -> value_of_int (sum_elapsed_q n j s.running));
+      ]
+    in ft_cartesian_product features_job features_system
+  in let features_job_square = ft_triangular_product features_job
+  and features_job_div : (string*criteria) list  =
+    List.map (fun (x, y) -> divf x y)
+      (BatList.cartesian_product features_job_mayzero features_job_nonzero)
+  and features_job_square_div : (string*criteria) list =
+    List.map (fun (x, y) -> divf x y)
+      (BatList.cartesian_product
+         (ft_cartesian_product features_job_mayzero features_job_mayzero)
+         features_job_nonzero)
+  and features_job_square_div2 : (string*criteria) list =
+    List.map (fun (x, y) -> divf x y)
+      [(feature_p,feature_q);
+       (feature_q,feature_p);
+       (multf feature_q feature_q,feature_p);
+       (multf feature_p feature_p,feature_q);
+       (multf feature_w feature_p,feature_q);
+       (multf feature_w feature_q,feature_p);
+      ];
+  and features_job_semantic : (string*criteria) list =
+    [("exp",LEXP.criteria);]
+  in (features_job_semantic@features_job_square@features_job_div@features_job_square_div@features_job_square_div2), features_system_job
 
 let () = Printf.printf "%s\n" (String.concat "," (List.map fst features_job))
+let () = Printf.printf "%s\n" (String.concat "," (List.map fst features_job_advanced))
 let () = Printf.printf "%s\n" (String.concat "," (List.map fst features_system_job))
 
 (*let features_job_2 : criteria list  =*)
@@ -164,12 +203,26 @@ end
 
 module MakeMixed(P:Alpha): Criteria =
 struct
-  if (List.exists (fun x -> x = 0.) (BatTuple.Tuple3.third P.alpha)) then
-    failwith "The third parameter vector to the mixed heuristic can not have null elements."
-  let () = assert (List.length (BatTuple.Tuple3.first P.alpha) = List.length P.ftlist)
-  let () = assert (List.length (BatTuple.Tuple3.second P.alpha) = List.length P.ftlist)
-  let () = assert (List.length (BatTuple.Tuple3.third P.alpha) = List.length P.ftlist)
-  let desc = String.concat "," (List.map fst P.ftlist)
+  let () =
+
+    let check_dim accessor s =
+      let actual=List.length (accessor P.alpha)
+      and expected=List.length P.ftlist
+      in if not (actual = expected) then
+        failwith
+          (Printf.sprintf
+             "%s parameter vector of wrong dimension. expected %d, obtained %d"
+                                                                     s expected actual)
+      else ()
+    in begin
+      if (List.exists (fun x -> x = 0.) (BatTuple.Tuple3.third P.alpha)) then
+        failwith "The third parameter vector has null entries.";
+      check_dim BatTuple.Tuple3.first "first";
+      check_dim BatTuple.Tuple3.second "second";
+      check_dim BatTuple.Tuple3.third "third";
+    end
+
+    let desc = String.concat "," (List.map fst P.ftlist)
   let criteria j s n i =
     let attributeList =
       List.map (fun (_,crit) -> get_value (crit j s n i)) P.ftlist

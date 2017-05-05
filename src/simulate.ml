@@ -49,7 +49,7 @@ let mixed copts backfill feature_out alpha alpha_poly alpha_system =
   (*generate 'reservation'*)
   let m =
     [ BatOption.map (Metrics.makeMixed features_job)               alpha;
-      BatOption.map (Metrics.makeMixed features_job_poly)     alpha_poly;
+      BatOption.map (Metrics.makeMixed features_job_advanced) alpha_poly;
       BatOption.map (Metrics.makeMixed features_system_job) alpha_system;]
       |> List.filter BatOption.is_some
     |> List.map BatOption.get

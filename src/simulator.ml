@@ -88,10 +88,10 @@ let mixed_cmd =
       let d = List.length Metrics.features_job
       in Printf.sprintf "Simple mixing parameters. Three comma-separated vectors of dimension %d, each separated by the character +" d
     in Arg.(value & opt (some (t3 ~sep:'+' (list ~sep:',' float)(list ~sep:',' float)(list ~sep:',' float))) None & info ["alpha"] ~docv:"ALPHA" ~doc)
-  in let alpha_poly =
+  in let alpha_advanced =
     let doc =
-      let d = List.length Metrics.features_job_poly
-      in Printf.sprintf "Polynomial mixing parameters. Three comma-separated vectors of dimension %d, each separated by thecharacter +" d
+      let d = List.length Metrics.features_job_advanced
+      in Printf.sprintf "Advanced mixing parameters. Three comma-separated vectors of dimension %d, each separated by thecharacter +" d
     in Arg.(value & opt (some (t3 ~sep:'+' (list ~sep:',' float)(list ~sep:',' float)(list ~sep:',' float))) None & info ["alphapoly"] ~docv:"ALPHAPOLY" ~doc)
   in let alpha_system =
     let doc =
@@ -109,7 +109,7 @@ let mixed_cmd =
     [`S "DESCRIPTION";
      `P doc] @ help_secs
   in
-    Term.(const Simulate.mixed $ copts_t $ backfill $ feature_out $ alpha $ alpha_poly $ alpha_system),
+    Term.(const Simulate.mixed $ copts_t $ backfill $ feature_out $ alpha $ alpha_advanced $ alpha_system),
     Term.info "mixed" ~doc ~sdocs:docs ~man
 
 (*let mixed_cmd =*)

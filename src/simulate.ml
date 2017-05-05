@@ -34,7 +34,7 @@ let run_simulator ?log_out:(log_out=None) copts reservation backfill =
     Engine.MakeSimulator(Scheduler)(struct include SchedulerParam end)
   in let hist,log =(S.simulate h s [] [])
   in (Io.hist_to_swf job_table copts.swf_out hist;
-      Io.log_to_file log_out log;
+      Io.log_to_file log_out CPrim.desc log;
       let f s =
         let module M = (val s:Statistics.Stat)
         in M.stat

@@ -95,52 +95,56 @@ let criteriaList =
 
 (*************************************** FEATURES ***********************************)
 
-let features_job : criteria list =
-  [SPF.criteria;
-   SQF.criteria;
-   FCFS.criteria;]
+let features_job : (string*criteria) list =
+  [("p",SPF.criteria);
+   ("q",SQF.criteria);
+   ("w",FCFS.criteria);]
 
-let multf (f:criteria) (g:criteria) : criteria =
-  fun j s n i ->
-    Value ((get_value (f j s n i)) *. (get_value (f j s n i)))
+let features_job_poly, features_system_job =
+  let multf (f:string *criteria) (g:string*criteria) : (string*criteria) =
+    ((fst f)^"*"^(fst g)),
+    fun j s n i ->
+      Value ((get_value ((snd f) j s n i)) *. (get_value ((snd g) j s n i)))
+  and features_system : (string*criteria) list =
+    [("free",fun _ s _ _ -> value_of_int s.free);
+     ("lwait",fun _ s _ _ -> (value_of_int (List.length s.waiting)));]
+  in let features_job_poly : (string*criteria) list  =
+    let rec combnk k lst =
+      let rec inner acc k lst =
+        match k with
+          | 0 -> [[]]
+          | _ ->
+              match lst with
+                | []      -> acc
+                | x :: xs ->
+                    let rec accmap acc f = function
+                      | []      -> acc
+                      | x :: xs -> accmap ((f x) :: acc) f xs
+                    in
+                    let newacc = accmap acc (fun z -> x :: z) (inner [] (k - 1) xs)
+                    in
+                      inner newacc k xs
+      in
+        inner [] k lst
+    in List.map (fun (x::xs) -> multf x (List.hd xs)) (combnk 2 features_job)
+  and features_system_job : (string*criteria) list  =
+    List.map (fun (x, y) -> multf x y)
+      (BatList.cartesian_product features_job features_system)
+  in features_job_poly, features_system_job
 
-let features_job_poly : criteria list  =
-  let rec combnk k lst =
-    let rec inner acc k lst =
-      match k with
-        | 0 -> [[]]
-        | _ ->
-            match lst with
-              | []      -> acc
-              | x :: xs ->
-                  let rec accmap acc f = function
-                    | []      -> acc
-                    | x :: xs -> accmap ((f x) :: acc) f xs
-                  in
-                  let newacc = accmap acc (fun z -> x :: z) (inner [] (k - 1) xs)
-                  in
-                    inner newacc k xs
-    in
-      inner [] k lst
-  in
-    List.map (fun (x::xs) -> multf x (List.hd xs)) (combnk 2 features_job)
+let () = Printf.printf "%s\n" (String.concat "," (List.map fst features_job))
+let () = Printf.printf "%s\n" (String.concat "," (List.map fst features_system_job))
 
-let features_system : criteria list =
-  [(fun _ s _ _ -> value_of_int s.free);
-   (fun _ s _ _ -> (value_of_int (List.length s.waiting)));]
+(*let features_job_2 : criteria list  =*)
+(*[LRF.criteria;*)
+(*LAF.criteria;*)
+(*LEXP.criteria;]*)
 
-let features_system_job : criteria list  =
-  List.map (fun (x, y) -> multf x y)
-    (BatList.cartesian_product features_job features_system )
-
-let features_job_2 : criteria list  =
-  [LRF.criteria;
-   LAF.criteria;
-   LEXP.criteria;]
+(*************************************** MIXING ***********************************)
 
 module MakeSum(C:Criteria)(C2:Criteria)=
 struct
-  let desc = "Polynomial Mixed metric."
+  let desc = C.desc^","^C2.desc
   let criteria j s n i =
     let f critf = match critf j s n i with
       |Value v -> v,[v]
@@ -150,16 +154,12 @@ struct
     in ValueLog ((c1 +. c2), (l1@l2))
 end
 let makeSum m1 m2 =
-  let module M = (val m1:Criteria)
-  in let module M2 = (val m1:Criteria)
-  in let module Mr = MakeSum(M)(M2)
-  in (module Mr:Criteria)
-
-(*************************************** MIXING ***********************************)
+  let module M = MakeSum((val m1:Criteria))((val m2:Criteria))
+  in (module M:Criteria)
 
 module type Alpha = sig
   val alpha : (float list) * (float list) * (float list)
-  val ftlist : criteria list
+  val ftlist : (string * criteria) list
 end
 
 module MakeMixed(P:Alpha): Criteria =
@@ -169,10 +169,10 @@ struct
   let () = assert (List.length (BatTuple.Tuple3.first P.alpha) = List.length P.ftlist)
   let () = assert (List.length (BatTuple.Tuple3.second P.alpha) = List.length P.ftlist)
   let () = assert (List.length (BatTuple.Tuple3.third P.alpha) = List.length P.ftlist)
-  let desc = "Basic Mixed metric."
+  let desc = String.concat "," (List.map fst P.ftlist)
   let criteria j s n i =
     let attributeList =
-      List.map (fun crit -> get_value (crit j s n i)) P.ftlist
+      List.map (fun (_,crit) -> get_value (crit j s n i)) P.ftlist
     in let v =
       let normalize l = l
         |> (List.map2 (fun avg x -> x -. avg ) (BatTuple.Tuple3.second P.alpha))

@@ -117,8 +117,9 @@ let hist_to_swf jobs filename_option hist =
     in List.iter f hist
   in wrap_io filename_option printer
 
-let log_to_file filename_option log =
+let log_to_file filename_option desc log =
   let printer chan =
+    Printf.fprintf chan "time,id,%s\n" desc;
     let f lf =
       let strings = List.map (Printf.sprintf "%0.3f") lf
       in Printf.fprintf chan "%s\n" (String.concat "," strings)

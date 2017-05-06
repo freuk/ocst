@@ -86,18 +86,18 @@ let mixed_cmd =
     in let alpha =
       let doc =
         let d = List.length Metrics.features_job
-        in Printf.sprintf "Simple mixing parameters. Three comma-separated vectors of dimension %d, each separated by the character +" d
-      in Arg.(value & opt (some (t3 ~sep:'+' (list ~sep:',' float)(list ~sep:',' float)(list ~sep:',' float))) None & info ["alpha"] ~docv:"ALPHA" ~doc)
+        in Printf.sprintf "Simple mixing parameters. Three comma-separated vectors of dimension %d, each separated by the character :" d
+      in Arg.(value & opt (some (t3 ~sep:':' (list ~sep:',' float)(list ~sep:',' float)(list ~sep:',' float))) None & info ["alpha"] ~docv:"ALPHA" ~doc)
     in let alpha_advanced =
       let doc =
         let d = List.length Metrics.features_job_advanced
-        in Printf.sprintf "Advanced mixing parameters. Three comma-separated vectors of dimension %d, each separated by thecharacter +" d
-      in Arg.(value & opt (some (t3 ~sep:'+' (list ~sep:',' float)(list ~sep:',' float)(list ~sep:',' float))) None & info ["alphapoly"] ~docv:"ALPHAPOLY" ~doc)
+        in Printf.sprintf "Advanced mixing parameters. Three comma-separated vectors of dimension %d, each separated by thecharacter :" d
+      in Arg.(value & opt (some (t3 ~sep:':' (list ~sep:',' float)(list ~sep:',' float)(list ~sep:',' float))) None & info ["alphapoly"] ~docv:"ALPHAPOLY" ~doc)
     in let alpha_system =
       let doc =
         let d = List.length Metrics.features_system_job
-        in Printf.sprintf "System mixing parameters. Three comma-separated vectors of dimension %d each, separated by thecharacter +" d
-      in Arg.(value & opt (some (t3 ~sep:'+' (list ~sep:',' float)(list ~sep:',' float)(list ~sep:',' float))) None & info ["alphasystem"] ~docv:"ALPHAPOLY" ~doc)
+        in Printf.sprintf "System mixing parameters. Three comma-separated vectors of dimension %d each, separated by thecharacter :" d
+      in Arg.(value & opt (some (t3 ~sep:':' (list ~sep:',' float)(list ~sep:',' float)(list ~sep:',' float))) None & info ["alphasystem"] ~docv:"ALPHAPOLY" ~doc)
     in let feature_out =
       let doc = "Specify output feature file."
       in Arg.(value & opt (some string) None & info ["ft_out"] ~docv:"FTFILE" ~doc)

@@ -225,8 +225,6 @@ struct
                                                                      s expected actual)
       else ()
     in begin
-      if (List.exists (fun x -> x = 0.) (BatTuple.Tuple3.third P.alpha)) then
-        failwith "The third parameter vector has null entries.";
       check_dim BatTuple.Tuple3.first "first";
       check_dim BatTuple.Tuple3.second "second";
       check_dim BatTuple.Tuple3.third "third";

@@ -88,6 +88,11 @@ let mixed_cmd =
         let d = List.length Metrics.features_job
         in Printf.sprintf "Simple mixing parameters. Three comma-separated vectors of dimension %d, each separated by the character :" d
       in Arg.(value & opt (some (t3 ~sep:':' (list ~sep:',' float)(list ~sep:',' float)(list ~sep:',' float))) None & info ["alpha"] ~docv:"ALPHA" ~doc)
+    in let alpha_threshold =
+      let doc =
+        let d = List.length Metrics.features_job_threshold
+        in Printf.sprintf "Simple mixing parameters. Three comma-separated vectors of dimension %d, each separated by the character :" d
+      in Arg.(value & opt (some (t3 ~sep:':' (list ~sep:',' float)(list ~sep:',' float)(list ~sep:',' float))) None & info ["alphathreshold"] ~docv:"ALPHA" ~doc)
     in let alpha_advanced =
       let doc =
         let d = List.length Metrics.features_job_advanced
@@ -117,7 +122,7 @@ let mixed_cmd =
       [`S "DESCRIPTION";
        `P doc] @ help_secs
     in
-      Term.(const Simulate.mixed $ copts_t $ backfill $ feature_out $ alpha $ alpha_advanced $ alpha_system $ proba $sampling),
+      Term.(const Simulate.mixed $ copts_t $ backfill $ feature_out $ alpha $ alpha_threshold $ alpha_advanced $ alpha_system $ proba $sampling),
       Term.info "mixed" ~doc ~sdocs:docs ~man
 
 (*let mixed_cmd =*)

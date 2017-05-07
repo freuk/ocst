@@ -104,6 +104,15 @@ let features_job_nonzero : (string*criteria) list = [feature_q;feature_p]
 
 let features_job : (string*criteria) list = features_job_nonzero @ features_job_mayzero
 
+let features_job_threshold =
+  let mkth (t, crit) = (fst crit, fun j s n i -> Value (max 0. ((get_value ((snd crit) j s n i)) -. t)))
+  and mkth' (t, crit) = (fst crit, fun j s n i -> Value (max 0. (t -. (get_value ((snd crit) j s n i)))))
+  and thresholds = 
+    let raw = [2.;1.;0.5;0.25;0.1]
+    in raw@[0.]@(List.map (fun x -> -. x) raw)
+  in List.map mkth (BatList.cartesian_product thresholds features_job)
+  @ (List.map mkth' (BatList.cartesian_product thresholds features_job))
+
 let features_job_advanced, features_system_job =
   (*helpers*)
   let divf (f:string *criteria) (g:string*criteria) : (string*criteria) =

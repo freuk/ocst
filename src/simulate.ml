@@ -45,7 +45,7 @@ let fixed copts reservation backfill =
   in let module M = Easy.MakeGreedyPrimary((val reservation:Metrics.Criteria))(struct let jobs = jt end)
   in run_simulator copts (module M:Easy.Primary) backfill jt mp
 
-let mixed copts backfill feature_out alpha alpha_poly alpha_system proba sampling =
+let mixed copts backfill feature_out alpha alpha_threshold alpha_poly alpha_system proba sampling =
   let jt,mp = Io.parse_jobs copts.swf_in
   in if proba then
     let module Pc =struct
@@ -53,13 +53,14 @@ let mixed copts backfill feature_out alpha alpha_poly alpha_system proba samplin
             let criterias = 
               let f ftlist (param:float list * float list * float list) : Metrics.criteria list = List.map snd ftlist
               in [ BatOption.map (f features_job)               alpha;
+                   BatOption.map (f features_job_threshold) alpha_threshold;
                    BatOption.map (f features_job_advanced) alpha_poly;
                    BatOption.map (f features_system_job) alpha_system;]
                 |> List.filter BatOption.is_some 
                  |> List.map BatOption.get
                  |> BatList.reduce List.append
             let alpha =
-              [alpha;alpha_poly;alpha_system]
+              [alpha;alpha_threshold;alpha_poly;alpha_system]
               |> List.filter BatOption.is_some
               |> List.map BatOption.get
               |> List.map BatTuple.Tuple3.first
@@ -70,6 +71,7 @@ let mixed copts backfill feature_out alpha alpha_poly alpha_system proba samplin
   else
     let m =
       [ BatOption.map (Metrics.makeMixed features_job)               alpha;
+        BatOption.map (Metrics.makeMixed features_job_threshold) alpha_threshold;
         BatOption.map (Metrics.makeMixed features_job_advanced) alpha_poly;
         BatOption.map (Metrics.makeMixed features_system_job) alpha_system;]
         |> List.filter BatOption.is_some

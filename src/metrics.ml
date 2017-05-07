@@ -239,7 +239,7 @@ struct
     in let v =
       let normalize l = l
         |> (List.map2 (fun avg x -> x -. avg ) (BatTuple.Tuple3.second P.alpha))
-        |> (List.map2 (fun var x -> x /. var ) (BatTuple.Tuple3.third P.alpha))
+        |> (List.map2 (fun var x -> if var = 0. then 0. else x /. var ) (BatTuple.Tuple3.third P.alpha))
       in List.fold_left2 (fun s weight x -> s +. (weight *. x)) 0.
          (BatTuple.Tuple3.first P.alpha) (normalize attributeList)
     in ValueLog (v, attributeList)

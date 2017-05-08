@@ -184,6 +184,12 @@ let features_job_advanced, features_system_job =
     [("exp",LEXP.criteria);]
   in (features_job_semantic@features_job_square@features_job_div@features_job_square_div@features_job_square_div2), features_system_job
 
+let features_job_plus : (string*criteria) list = 
+  features_job_nonzero @ features_job_mayzero @
+  [("exp",SEXP.criteria);
+  ("r",SRF.criteria);
+  ("a",SAF.criteria);]
+
 (*let features_job_2 : criteria list  =*)
 (*[LRF.criteria;*)
 (*LAF.criteria;*)

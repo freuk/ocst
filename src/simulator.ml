@@ -85,7 +85,7 @@ let mixed_cmd =
     (*in (some (t3 ~sep:';' lcomma lcomma lcomma))*)
     in let alpha =
       let doc =
-        let d = List.length Metrics.features_job
+        let d = List.length Metrics.features_job_plus
         in Printf.sprintf "Simple mixing parameters. Three comma-separated vectors of dimension %d, each separated by the character :" d
       in Arg.(value & opt (some (t3 ~sep:':' (list ~sep:',' float)(list ~sep:',' float)(list ~sep:',' float))) None & info ["alpha"] ~docv:"ALPHA" ~doc)
     in let alpha_threshold =

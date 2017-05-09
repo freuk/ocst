@@ -1,134 +1,63 @@
-open Metrics
-open Jobs
-open Events
-open Resources
 open System
 
-module type SchedulerSig = sig
-  val schedule : int -> int list
+(*util*)
+let compose_binop f g = fun x y -> f (g x) (g y)
+
+(*************************** Common parameter *************************************)
+module type SchedulerParam = sig
+  val jobs : job_table
 end
 
-(*Job selector for easy algoritmm.*)
-module type SelectorSig = sig
-  val selector :
-    int -> (*now*)
-    int list -> (*backfillable jobs*)
-    int -> (*time of the reservation*)
-    int -> (*reservation job*)
-    int -> (*free resources above the reservation job*)
-    int
+(***************************Primary and backfilling selectors***********************)
+
+(**** Primary Selector ****)
+module type Primary = sig
+  val desc : string
+  val reorder :
+    system:System.system ->  (*system state before primary jobs are started*)
+    now:int ->               (*now*)
+    log:System.log ->        (*log*)
+    (System.log * int list)
 end
 
-module type ReservationSelector = sig
-  val reorder : int -> int list -> int list
+module MakeGreedyPrimary
+  (C:Metrics.Criteria)
+  (S:SchedulerParam)
+  : Primary =
+struct
+  let desc = C.desc
+  let crit = C.criteria S.jobs
+  let reorder ~system:s ~now:now ~log:log =
+        let lv =
+          let process_waiting i = match crit s now i with
+            |Value v -> (i,v,[])
+            |ValueLog (v,l) -> (i,v,l)
+          in List.map process_waiting s.waiting
+        in
+          lv |> List.fold_left (fun acc (i,_,x) ->
+                                  ((float_of_int now)::(float_of_int i)::x)::acc) log,
+          lv |> List.sort (compose_binop Pervasives.compare (fun (_,x,_) -> x))
+      |> List.map (fun (x,_,_) -> x)
 end
 
-module MakeReservationSelector
-(P:SystemParamSig)
-(C:CriteriaSig)
-: ReservationSelector
-= struct
-  let comp now i1 i2 = compare (C.criteria P.jobs now i2) (C.criteria P.jobs now i1)
-  let reorder now = List.sort (comp now)
+type sampling = Softmax | Linear
+let sampling_types = 
+  [ ("softmax",Softmax);
+    ("linear",Linear) ]
+module type ProbaPolParam = sig
+
+  val sampling :  sampling
+  val criterias : Metrics.criteria list
+  val alpha : float list
 end
 
-module type BernouilliReservatorParam = sig
-  val p : float
-end
-
-module MakeBernouilliReservationSelector
-(BP:BernouilliReservatorParam)
-(P:SystemParamSig)
-(R1:ReservationSelector)
-(R2:ReservationSelector)
-: ReservationSelector
-= struct
-  let reorder now l =
-    let r = Random.float 1.
-    in if r> BP.p then R1.reorder now l else R2.reorder now l 
-end
-
-(*main functor for building easy backfilling algorithms*)
-module MakeEasyScheduler
-(SelectR:ReservationSelector)
-(SelectB:SelectorSig)
-(P:SystemParamSig)
-: SchedulerSig
-= struct
-
-  let get_easy jobs free waitqueue =
-    let rec easy decision free = function
-      |[] -> (decision,free,None,[])
-      | i :: is when free>=(find jobs i).q -> easy (decision@[i]) (free-(find jobs i).q) is
-      | i :: is -> (decision,free,Some i,is)
-    in easy  [] free waitqueue
-
-  let get_backfillable jobs r r' t idlist =
-    assert (t>0);
-    let p i =
-      let j = find jobs i
-      in j.q <= (min r' r) || (j.q <= r && j.p_est <= t)
-    in List.filter p idlist
-
-  let reserve jobs now free id resourcestate decision=
-    let job = find jobs id
-    in let make_projected_end i = (now + (find jobs i).p_est ,i)
-    in let projected_end_list = resourcestate.jobs_running_list @ (List.map make_projected_end decision)
-    in let sorted_projected_end_list = List.sort (fun (t,_) (t',_) -> compare t t') projected_end_list
-    in let rec fits f l = match l with
-      | [] -> raise ( Failure "Internal error: resource usage data inconsistent." )
-      | (t,i)::_ when f+(find jobs i).q >= job.q -> (t-now, f+(find jobs i).q-job.q)
-      | (t,i)::tis -> fits (f+(find jobs i).q) tis
-    in fits free sorted_projected_end_list
-
-  let schedule now =
-    let free = Resources.currently_free_resources P.resourcestate
-    in let () = assert (free >= 0)
-    in match get_easy P.jobs free (SelectR.reorder now !P.waitqueue) with
-       | decision , _        , None     , _    ->  decision
-       | decision , _        , sid      , []   ->  decision
-       | decision , free'    , Some id  , rest ->
-           let () = assert (free' >= 0);
-           in let t, f_r = reserve P.jobs now free' id P.resourcestate decision
-           in let () = assert (t>0)
-           in let rec picknext decisionlist f f' idlist =
-               assert (f >= 0);
-               assert (f'>= 0);
-               let bfable = get_backfillable P.jobs f f' t idlist
-               in match bfable with
-                 | [] -> decisionlist
-                 | _::_ ->
-                    let idpicked = SelectB.selector now bfable t id f_r
-                    in let j = find P.jobs idpicked
-                    in let res = j.q
-                    in let runt = j.p_est
-                    in let new_f  = f-res
-                    in let new_f' = if (runt > t) then f'-res else f'
-                    in let remaining_ids = List.filter (fun id -> id != idpicked) bfable
-                    in picknext (decisionlist@[(idpicked)]) new_f new_f' remaining_ids
-           in let backfill_decision= picknext [] free' f_r rest
-           in (decision @ backfill_decision)
-  end
-
-module MakeGreedySelector(C:CriteriaSig)(P:SystemParamSig): SelectorSig
-=struct
-
-  let selector (now:int) (bfable:int list) (restime:int ) resjob resres =
-    let id = List.hd bfable
-    in let rec argmax v ip = function
-    |i::is when v <= (C.criteria P.jobs now i) -> argmax (C.criteria P.jobs now i) i is
-    |i::is -> argmax v ip is
-    |[] -> ip
-    in argmax (C.criteria P.jobs now id) id bfable
-end
-
-module MakeRandomizedSelector(C:CriteriaSig)(P:SystemParamSig)
-:SelectorSig
-=struct
-  (* pick a random id from this list -- the non-emply list
-    should be in format [(proba,id);..] and the probabilities
-    should add to 1. *)
-  let pick_random_weighted (l: (float*int) list) : int =
+module MakeProbabilisticPrimary
+  (P:ProbaPolParam)
+  (S:SchedulerParam)
+  : Primary =
+struct
+  let desc = "probabilistic."
+  let pick_random_weighted l=
     let r = Random.float (float_of_int 1)
     in let rec nextrandom s i' = function
       |(p,i)::is when s +. p >= r -> i
@@ -136,98 +65,261 @@ module MakeRandomizedSelector(C:CriteriaSig)(P:SystemParamSig)
       |[]-> i'
     in nextrandom 0. (snd (List.hd l)) l
 
-  let selector (now:int) (bfable:int list) (restime:int) resjob resres =
-    let weights : float list = List.map (C.criteria P.jobs now) bfable
-    in let minweight = BatList.min weights
-    in let scaledweights = List.map (fun x-> x-.minweight) weights
-    in let sum : float = List.fold_left (fun acc x -> acc +. x) 0. scaledweights
-    in let nd = List.map2 (fun x y -> (x /. sum, y)) scaledweights bfable
-    in pick_random_weighted nd
+  let reorder ~system:s ~now:now ~log:log =
+    let probas = match P.sampling with
+      |Softmax ->
+          let exp_alphas = (List.map exp P.alpha)
+          in let denom = BatList.fsum exp_alphas
+          in List.map (fun x -> x /. denom) exp_alphas
+      |Linear ->
+          let min_alphas = fst (BatList.min_max P.alpha)
+          in let scaled_alphas = List.map (fun x -> x -. min_alphas) P.alpha
+          in let denom = BatList.fsum scaled_alphas
+          in List.map (fun x -> x /. (max 0.000001 denom)) scaled_alphas
+    in let crit = pick_random_weighted (BatList.map2 (fun p i -> (p,i)) probas P.criterias)
+    in let process_waiting i = match crit S.jobs s now i with
+      |Value v -> (i,v)
+      |ValueLog (v,l) -> (i,v)
+    in let v = List.map process_waiting s.waiting
+      |> List.sort (compose_binop Pervasives.compare snd) 
+      |> List.map fst
+    in ([],v)
 end
 
-module type EpsGreedyParameterSig = sig
-  val epsilon : float
+(**** Backfilling Selector ****)
+module type Secondary = sig
+  val pick :
+    system:system ->                (*full state of the system BEFORE starting easy*)
+    now:int ->                      (*now*)
+    backfillable:int list ->        (*backfillable jobs*)
+    reservationWait:int ->          (*time of the reservation*)
+    reservationID:int ->            (*reservation job*)
+    reservationFree:int ->          (*free resources above the reservation job*)
+    freeNow:int ->                  (*free resources before backfilling*)
+    int list
 end
 
-module MakeEpsGreedySelector(E:EpsGreedyParameterSig)(C:CriteriaSig)(P:SystemParamSig)
-:SelectorSig
-= struct
-  let selector (now:int) (bfable:int list) (restime:int) resjob resres =
-    let id = List.hd bfable
-    in let rec argmax v ip = function
-    |i::is when v <= (C.criteria P.jobs now i) -> argmax (C.criteria P.jobs now i) i is
-    |i::is -> argmax v ip is
-    |[] -> ip
-    in let r = Random.float (float_of_int 1)
-    in if r<E.epsilon
-    then
-      List.nth bfable (Random.int (List.length bfable))
-    else
-      argmax (C.criteria P.jobs now id) id bfable
+(*list jobs eligible for backfilling*)
+
+module MakeGreedySecondary
+  (C:Metrics.Criteria)
+  (S:SchedulerParam)
+  : Secondary =
+struct
+
+  let is_eligible ~freeNow:r ~freeResa:r' ~resaWait:t ~q:q ~p_est:p_est =
+    assert (t>0);
+    assert (r>=0);
+    assert (r'>=0);
+    q <= (min r' r) || (q <= r && p_est <= t)
+
+  let crit = C.criteria S.jobs
+
+  let pick
+        ~system:s
+        ~now:now
+        ~backfillable:bfable
+        ~reservationWait:restime
+        ~reservationID:resjob
+        ~reservationFree:free'
+        ~freeNow:free =
+    let rec picknext f f' picked = function
+      |[] -> picked
+      |i::is ->
+          let j = Hashtbl.find S.jobs i
+          in let is_shorter = j.p_est <= restime
+          in if (j.q <= (min f f') || (j.q <= f && is_shorter )) then
+            picknext
+              (f-j.q)
+              (f' - (if not is_shorter then j.q else 0))
+              (i::picked)
+              is
+          else
+            picknext f f' picked is
+    and sorted =
+      let comp i1 i2 = compare (crit s now i2) (crit s now i1)
+      in List.sort comp bfable
+    in picknext free free' [] sorted
+
+(*let j = Hashtbl.find S.jobs fj idpicked*)
+(*in let res = j.q*)
+(*in let runt = j.p_est*)
+(*in let new_f  = f-res*)
+(*in let new_f' = if (runt > resaWait) then f'-res else f'*)
+(*in let remaining_ids = List.filter (fun id -> id != idpicked) bfable*)
+(*in picknext (decisionlist@[(idpicked)]) new_f new_f' remaining_ids*)
 end
 
-module RandomSelector : SelectorSig
-= struct
-  let selector _ bfable _ _ _ =
-    let i =  Random.int (List.length bfable)
-    in List.nth bfable i
+
+(************************************ Scheduler ***************************************)
+module type Scheduler = sig
+  val schedule : int -> System.system -> System.log -> ((int list) * System.log)
 end
 
-module MakeRandomHeuristicSelector
-(C1:CriteriaSig)
-(C2:CriteriaSig)
-(P:SystemParamSig)
-: SelectorSig
-=struct
-  module H1 = MakeGreedySelector(C1)(P)
-  module H2 = MakeGreedySelector(C2)(P)
+module MakeEasyScheduler
+  (Primary:Primary)
+  (Secondary:Secondary)
+  (P:SchedulerParam)
+  : Scheduler =
+struct
+  let fj = Hashtbl.find P.jobs
 
-  let selector now bfable restime resjob resres =
-    let h = Random.bool ()
-    in let sel = if h then
-      H1.selector
-    else
-      H2.selector
-    in sel now bfable restime resjob resres
+  (*should we attempt to backfill?*)
+  type easy =
+      Simple of int list      (*no backfilling needed*)
+    | Backfill of (int list * (*to start now*)
+                   int *      (*remaining resources after*)
+                   int *      (*id of job to backfill*)
+                   int list)  (*pontentially eligible*)
+  let get_easy ~free:free ~waitqueue:wq =
+    assert (free >= 0);
+    let rec easy decision free = function
+      | [] -> Simple decision
+      | i :: is  -> let remaining = free-(fj i).q
+        in if remaining >= 0 then easy (decision@[i]) remaining is
+        else Backfill (decision,free,i,is)
+    in easy [] free wq
+
+  let reserve ~now:now ~free:free ~q:needed ~running:running ~decision:decision =
+    let rec fits f = function
+      | [] -> failwith "impossible to backfill this job. check MaxProcs."
+          | (t,i)::tis ->
+              let f' = f+ (fj i).q
+              in if f' >= needed then
+                let resaWait = t-now;
+                in ( assert ( resaWait > 0 ); ( resaWait, f'-needed ))
+                else
+                  fits (f') tis
+                    and projected =
+                      let sort = (List.sort (fun (t,_) (t',_) -> compare t t'))
+                      and project = (List.map (fun (t,i) -> (t+ (fj i).p_est,i)))
+                      in (running @ (List.map (fun i -> (now,i)) decision))
+          |> project |> sort
+    in fits free projected
+
+
+  let schedule now s log =
+    let log, reordered = Primary.reorder ~system:s ~now:now ~log:log
+    in match get_easy s.free reordered with
+      | Simple decision                     -> (decision,log)
+      | Backfill (decision, _, _, [])       -> (decision,log)
+      | Backfill (decision, free, id, rest) ->
+          assert (free >= 0);
+          let resaWait, resaFree =
+            reserve ~now:now ~free:free ~q:(fj id).q ~running:s.running
+              ~decision:decision
+          in let () = assert (resaWait>0)
+          in let () = assert (resaFree>=0)
+          in let backfilled =
+            Secondary.pick ~system:s ~now:now ~backfillable:rest
+              ~reservationWait:resaWait ~reservationID:id ~reservationFree:resaFree
+              ~freeNow:free
+          in ((decision @ backfilled), log)
 end
 
-module type BernouilliParameter = sig
-  val p : float
-end
+(*module MakeBernouilliPrimary*)
+(*(BP:BernouilliReservatorParam)*)
+(*(P:SchedulerParam)*)
+(*(R1:Primary)*)
+(*(R2:Primary)*)
+(*: Primary*)
+(*= struct*)
+  (*let reorder now l =*)
+    (*let r = Random.float 1.*)
+    (*in if r> BP.p then R1.reorder now l else R2.reorder now l *)
+(*end*)
 
-module MakeBernouilliHeuristicSelector
-(W:BernouilliParameter)
-(C1:CriteriaSig)
-(C2:CriteriaSig)
-(P:SystemParamSig)
-:SelectorSig = struct
-  module H1 = MakeGreedySelector(C1)(P)
-  module H2 = MakeGreedySelector(C2)(P)
 
-  let selector now bfable restime resjob resres =
-    let r = Random.float 1.
-    in let sel = if r<W.p then
-      H1.selector
-    else
-      H2.selector
-    in sel now bfable restime resjob resres
-end
+(*module type BernouilliParameter = sig*)
+  (*val p : float*)
+(*end*)
 
-(*examples:*)
-module MakeEasyGreedy (CR:CriteriaSig)(CB:CriteriaSig)(P:SystemParamSig) =
-MakeEasyScheduler(MakeReservationSelector(P)(CR))(MakeGreedySelector(CB)(P))(P)
+(*module MakeBernouilliHeuristicSecondary*)
+(*(W:BernouilliParameter)*)
+(*(C1:Criteria)*)
+(*(C2:Criteria)*)
+(*(P:SchedulerParam)*)
+(*:Secondary = struct*)
+  (*module H1 = MakeGreedySecondary(C1)(P)*)
+  (*module H2 = MakeGreedySecondary(C2)(P)*)
 
-module MakeEasyRandomizedGreedy (CR:CriteriaSig)(CB:CriteriaSig)(P:SystemParamSig) =
-MakeEasyScheduler(MakeReservationSelector(P)(CR))(MakeRandomizedSelector(CB)(P))(P)
+  (*let selector now bfable restime resjob resres =*)
+    (*let r = Random.float 1.*)
+    (*in let sel = if r<W.p then*)
+      (*H1.selector*)
+    (*else*)
+      (*H2.selector*)
+    (*in sel now bfable restime resjob resres*)
+(*end*)
 
-module MakeEasyEpsRandGreedy (E:EpsGreedyParameterSig)(CR:CriteriaSig)(CB:CriteriaSig)(P:SystemParamSig) =
-MakeEasyScheduler(MakeReservationSelector(P)(CR))(MakeEpsGreedySelector(E)(CB)(P))(P)
 
-module MakeEasyRandom (CR:CriteriaSig)(P: SystemParamSig) =
-MakeEasyScheduler(MakeReservationSelector(P)(CR))(RandomSelector)(P)
+(*module MakeEasyBernouilli(C1:Criteria)(C2:Criteria)(B:BernouilliReservatorParam)(CB:Criteria)(P: SchedulerParam) =*)
+(*MakeEasyScheduler(MakeBernouilliPrimary(B)(P)(MakeGreedyPrimary(P)(C1))(MakeGreedyPrimary(P)(C2)))(MakeGreedySecondary(CB)(P))(P)*)
 
-module MakeEasyBernouilli(C1:CriteriaSig)(C2:CriteriaSig)(B:BernouilliReservatorParam)(CB:CriteriaSig)(P: SystemParamSig) =
-MakeEasyScheduler(MakeBernouilliReservationSelector(B)(P)(MakeReservationSelector(P)(C1))(MakeReservationSelector(P)(C2)))(MakeGreedySelector(CB)(P))(P)
 
-module MakeEasyHRandom(C1:CriteriaSig)(C2:CriteriaSig)(CR:CriteriaSig)(P: SystemParamSig) =
-MakeEasyScheduler(MakeReservationSelector(P)(CR))(MakeRandomHeuristicSelector(C1)(C2)(P))(P)
+(*module type BernouilliReservatorParam = sig*)
+  (*val p : float*)
+(*end*)
+
+
+(*module MakeRandomizedSecondary(C:Criteria)(P:SchedulerParam)*)
+(*:Secondary*)
+(*=struct*)
+
+  (*let selector (now:int) (bfable:int list) (restime:int) resjob resres =*)
+    (*let weights : float list = List.map (C.criteria P.jobs now) bfable*)
+    (*in let minweight = BatList.min weights*)
+    (*in let scaledweights = List.map (fun x-> x-.minweight) weights*)
+    (*in let sum : float = List.fold_left (fun acc x -> acc +. x) 0. scaledweights*)
+    (*in let nd = List.map2 (fun x y -> (x /. sum, y)) scaledweights bfable*)
+    (*in pick_random_weighted nd*)
+(*end*)
+
+(*module MakeEasyRandomizedGreedy (CR:Criteria)(CB:Criteria)(P:SchedulerParam) =*)
+(*MakeEasyScheduler(MakeGreedyPrimary(P)(CR))(MakeRandomizedSecondary(CB)(P))(P)*)
+
+(*module MakeEpsGreedySecondary(E:EpsGreedyParameter)(C:Criteria)(P:SchedulerParam)*)
+(*:Secondary*)
+(*= struct*)
+  (*let selector (now:int) (bfable:int list) (restime:int) resjob resres =*)
+    (*let id = List.hd bfable*)
+    (*in let rec argmax v ip = function*)
+    (*|i::is when v <= (C.criteria P.jobs now i) -> argmax (C.criteria P.jobs now i) i is*)
+    (*|i::is -> argmax v ip is*)
+    (*|[] -> ip*)
+    (*in let r = Random.float (float_of_int 1)*)
+    (*in if r<E.epsilon*)
+    (*then*)
+      (*List.nth bfable (Random.int (List.length bfable))*)
+    (*else*)
+      (*argmax (C.criteria P.jobs now id) id bfable*)
+(*end*)
+
+(*module type EpsGreedyParameter = sig*)
+  (*val epsilon : float*)
+(*end*)
+
+(*module RandomSecondary : Secondary*)
+(*= struct*)
+  (*let selector _ bfable _ _ _ =*)
+    (*let i =  Random.int (List.length bfable)*)
+    (*in List.nth bfable i*)
+(*end*)
+
+(*module MakeRandomHeuristicSecondary*)
+(*(C1:Criteria)*)
+(*(C2:Criteria)*)
+(*(P:SchedulerParam)*)
+(*: Secondary*)
+(*=struct*)
+  (*module H1 = MakeGreedySecondary(C1)(P)*)
+  (*module H2 = MakeGreedySecondary(C2)(P)*)
+
+  (*let selector now bfable restime resjob resres =*)
+    (*let h = Random.bool ()*)
+    (*in let sel = if h then*)
+      (*H1.selector*)
+    (*else*)
+      (*H2.selector*)
+    (*in sel now bfable restime resjob resres*)
+(*end*)

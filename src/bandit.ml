@@ -108,7 +108,7 @@ module MakeSimulationSelector
   let lastReward = ref 0.
   let lastN = ref 0
   let lastTimeId = ref (-1)
-  let lastWaitQueue = Jobs.empty_job_waiting_queue ()
+  let lastWaitQueue = ref []
   let lastResourceState = ref (Resources.empty_resources P.resourcestate.maxprocs)
 
   let currentPolicy = ref (module MakeReservationSelector(P)(CriteriaWait):ReservationSelector)
@@ -118,6 +118,14 @@ module MakeSimulationSelector
 
   (**SIMULATION*)
   let getReward wq (rstate:Resources.system_state) bheap policy=
+    Printf.printf "max: %d free: %d\n" rstate.maxprocs rstate.free;
+     Events.Heap.iter (fun e -> match e.event_type with
+                                    |End ->Printf.printf "(END e.time %d e.id %d q %d) " e.time e.id (Jobs.find P.jobs e.id).q
+                                    |Submit ->Printf.printf "(SUB e.time %d e.id %d q %d) " e.time e.id (Jobs.find P.jobs e.id).q
+    ) bheap;
+     Printf.printf "%s" "\n";
+     List.iter (fun (t,i) ->Printf.printf "(t %d i %d) " t i)  rstate.jobs_running_list;
+     Printf.printf "%s" "\n";
     begin
      let module SimulatorParam = struct
         let eventheap = bheap
@@ -167,16 +175,16 @@ module MakeSimulationSelector
           lastTimeId := now / BSP.period;
           let f t =
             let bh = Events.empty_event_heap ()
-            in let fins e = 
-                Events.submit_job e.id ((Jobs.find P.jobs e.id).r) bh
-            in let () = Events.Heap.iter fins BSP.jobHeap 
-            in let fend (t,i) = Heap.add bh {time=t; id=i; event_type=End}
+            in let () = Events.Heap.iter (fun e -> Heap.add bh e) BSP.jobHeap 
+            in let fend (t,i) = Heap.add bh {time=t - ((Jobs.find P.jobs i).p_est) + ((Jobs.find P.jobs i).p); id=i; event_type=End}
             in let () = List.iter fend !lastResourceState.jobs_running_list
+                          (*PRINTING *)
+                          (*PRINTING *)
             in let x,p = t
-            in let () = List.iter (fun x -> Printf.printf "iq %d" x) !lastWaitQueue
-            in let () = Printf.printf "%s" "\n"
-            in let () = Events.Heap.iter (fun x -> Printf.printf "ibh %d" x.id) bh
-            in let () = Printf.printf "%s" "\n"
+            (*in let () = List.iter (fun x -> Printf.printf "iq %d" x) !lastWaitQueue*)
+            (*in let () = Printf.printf "%s" "\n"*)
+            (*in let () = Events.Heap.iter (fun x -> Printf.printf "ibh %d" x.id) bh*)
+            (*in let () = Printf.printf "%s" "\n"*)
             in let r  = getReward !lastWaitQueue !lastResourceState bh p
             in begin
               let fprintclv chan =  Printf.fprintf chan "%f " r
@@ -188,7 +196,8 @@ module MakeSimulationSelector
           in BatOption.may fprintclv BSP.outClv;
           let fprintclv chan =  Printf.fprintf chan "%s" "\n"
           in BatOption.may fprintclv BSP.outClv;
-          (*lastWaitQueue := !P.waitqueue;*)
+          lastWaitQueue := !P.waitqueue;
+          Printf.printf "len ref %d; len real %d;" (List.length !lastWaitQueue) (List.length !P.waitqueue);
           lastResourceState := Resources.copy P.resourcestate;
           let fp t = let x,p = t 
             in let module C = (val p:CriteriaSig)
@@ -210,3 +219,34 @@ module MakeSimulationSelector
         let module M = (val !currentPolicy:ReservationSelector)
         in M.reorder now l
 end
+
+(*module type PyArg = sig*)
+
+(*end*)
+
+(*module type ClairvoyantBanditParam = sig*)
+  (*include PeriodParam*)
+  (*val modelCommand : string*)
+(*end*)
+
+(*module MakeClassifierSelector*)
+(*(BSP:PeriodParam)*)
+(*(P:SystemParamSig)*)
+(*: ReservationSelector*)
+(*= struct*)
+  (*let lastTimeId = ref 0*)
+  (*let currentPolicy = ref (-1)*)
+  (*[>let lastWaitQueue = Jobs.empty_job_waiting_queue ()<]*)
+  (*let lastResourceState = ref (Resources.empty_resources P.resourcestate.maxprocs)*)
+
+  (*let allReorders = listReorderFunctions BSP.policyList (module P:SystemParamSig)*)
+
+  (*let reorder now l =*)
+      (*if  (!lastTimeId = 0) || ((now / BSP.period) > !lastTimeId) then*)
+        (*begin*)
+          (*lastTimeId := now / BSP.period;*)
+          (*currentPolicy := Random.int (List.length BSP.policyList)*)
+        (*end;*)
+      (*(List.nth allReorders !currentPolicy) now l*)
+      (*lastResourceState := Resources.copy P.resourcestate;*)
+(*end*)

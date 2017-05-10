@@ -86,6 +86,30 @@ struct
     in ([],v)
 end
 
+module type PeriodParam = sig
+  val period : int
+end
+
+module MakePeriodPrimary
+  (P:PeriodParam)
+  (S:SchedulerParam)
+  : Primary =
+struct
+  let desc = "resimulation"
+  let crit = Metrics.FCFS.criteria S.jobs
+  let reorder ~system:s ~now:now ~log:log =
+        let lv =
+          let process_waiting i = match crit s now i with
+            |Value v -> (i,v,[])
+            |ValueLog (v,l) -> (i,v,l)
+          in List.map process_waiting s.waiting
+        in
+          lv |> List.fold_left (fun acc (i,_,x) ->
+                                  ((float_of_int now)::(float_of_int i)::x)::acc) log,
+          lv |> List.sort (compose_binop Pervasives.compare (fun (_,x,_) -> x))
+      |> List.map (fun (x,_,_) -> x)
+end
+
 (**** Backfilling Selector ****)
 module type Secondary = sig
   val pick :

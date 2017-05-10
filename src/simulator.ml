@@ -125,6 +125,25 @@ let mixed_cmd =
       Term.(const Simulate.mixed $ copts_t $ backfill $ feature_out $ alpha $ alpha_threshold $ alpha_advanced $ alpha_system $ proba $sampling),
       Term.info "mixed" ~doc ~sdocs:docs ~man
 
+let resim_cmd =
+  let docs = copts_sect
+  in let perf_out =
+    let doc = "Specify output perf file."
+    in Arg.(value & opt (some string) None & info ["perf_out"] ~docv:"OUTPERF" ~doc)
+  in let period =
+      let doc = "Period"
+      in Arg.(value & opt int 86400 & info ["period"] ~docv:"PERIOD" ~doc)
+  in let doc = "Simulates the run of a classic EASY backfilling with the FCFS primary/backfilling policy and prints periodical resimulation output." in
+    in let policies=
+    let doc = "Policies." in
+    Arg.(value & opt (list ~sep:',' (enum Metrics.criteriaList)) [BatList.assoc "fcfs" Metrics.criteriaList] & info ["policies"] ~docv:"POLICIES" ~doc)
+  let man =
+    [`S "DESCRIPTION";
+     `P doc] @ help_secs
+  in
+    Term.(const Simulate.resimulate $ copts_t $ period $ perf_out),
+    Term.info "fixed" ~doc ~sdocs:docs ~man
+
 (*let mixed_cmd =*)
 (*let docs = copts_sect*)
 (*in let backfill =*)
@@ -246,7 +265,7 @@ let mixed_cmd =
 (*Term.info "bandit-onpolicy" ~doc ~sdocs:docs ~man*)
 
 (*let cmds = [mixed_cmd;bandit_random_cmd;bandit_cmd; simulate_cmd; threshold_cmd; help_cmd]*)
-let cmds = [fixed_cmd; mixed_cmd; help_cmd]
+let cmds = [fixed_cmd; mixed_cmd; resim_cmd; help_cmd]
 
 let default_cmd =
   let doc = "a backfilling simulator" in

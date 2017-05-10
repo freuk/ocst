@@ -81,6 +81,12 @@ let mixed copts backfill feature_out alpha alpha_threshold alpha_poly alpha_syst
     in let module M = Easy.MakeGreedyPrimary(P)(struct let jobs=jt end)
     in run_simulator ~log_out:feature_out copts (module M:Easy.Primary) backfill jt mp
 
+let resimulate copts period perf_out=
+  let jt,mp = Io.parse_jobs copts.swf_in
+  in let module M = Easy.MakePeriodPrimary(struct let period=period end)(struct let jobs = jt end)
+  in let mbackfill = (module Metrics.FCFS:Metrics.Criteria)
+  in run_simulator ~log_out:perf_out copts (module M:Easy.Primary) (module Metrics.Fcfs:Criteria) jt mp
+
 (*type mixingType = Probabilistic | Scorebased*)
 (*let mixingList = *)
     (*[("prob", Probabilistic);*)

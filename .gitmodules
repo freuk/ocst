@@ -1,0 +1,3 @@
+[submodule "datamove-nix"]
+	path = datamove-nix
+	url = gitlabi:vreis/datamove-nix

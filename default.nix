@@ -1,5 +1,5 @@
 with import <nixpkgs> {};
-with import ../obps {};
+with import ./datamove-nix {};
 stdenv.lib.overrideDerivation ocs (oldAttrs : {
   src = ./.;
 })

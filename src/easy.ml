@@ -88,6 +88,7 @@ end
 
 module type PeriodParam = sig
   val period : int
+  val policies : Metrics.criteria list
 end
 
 module MakePeriodPrimary
@@ -96,18 +97,7 @@ module MakePeriodPrimary
   : Primary =
 struct
   let desc = "resimulation"
-  let crit = Metrics.FCFS.criteria S.jobs
-  let reorder ~system:s ~now:now ~log:log =
-        let lv =
-          let process_waiting i = match crit s now i with
-            |Value v -> (i,v,[])
-            |ValueLog (v,l) -> (i,v,l)
-          in List.map process_waiting s.waiting
-        in
-          lv |> List.fold_left (fun acc (i,_,x) ->
-                                  ((float_of_int now)::(float_of_int i)::x)::acc) log,
-          lv |> List.sort (compose_binop Pervasives.compare (fun (_,x,_) -> x))
-      |> List.map (fun (x,_,_) -> x)
+  let reorder ~system:s ~now:now ~log:log = log, s.waiting
 end
 
 (**** Backfilling Selector ****)
@@ -164,16 +154,7 @@ struct
       let comp i1 i2 = compare (crit s now i2) (crit s now i1)
       in List.sort comp bfable
     in picknext free free' [] sorted
-
-(*let j = Hashtbl.find S.jobs fj idpicked*)
-(*in let res = j.q*)
-(*in let runt = j.p_est*)
-(*in let new_f  = f-res*)
-(*in let new_f' = if (runt > resaWait) then f'-res else f'*)
-(*in let remaining_ids = List.filter (fun id -> id != idpicked) bfable*)
-(*in picknext (decisionlist@[(idpicked)]) new_f new_f' remaining_ids*)
 end
-
 
 (************************************ Scheduler ***************************************)
 module type Scheduler = sig
@@ -240,110 +221,3 @@ struct
               ~freeNow:free
           in ((decision @ backfilled), log)
 end
-
-(*module MakeBernouilliPrimary*)
-(*(BP:BernouilliReservatorParam)*)
-(*(P:SchedulerParam)*)
-(*(R1:Primary)*)
-(*(R2:Primary)*)
-(*: Primary*)
-(*= struct*)
-  (*let reorder now l =*)
-    (*let r = Random.float 1.*)
-    (*in if r> BP.p then R1.reorder now l else R2.reorder now l *)
-(*end*)
-
-
-(*module type BernouilliParameter = sig*)
-  (*val p : float*)
-(*end*)
-
-(*module MakeBernouilliHeuristicSecondary*)
-(*(W:BernouilliParameter)*)
-(*(C1:Criteria)*)
-(*(C2:Criteria)*)
-(*(P:SchedulerParam)*)
-(*:Secondary = struct*)
-  (*module H1 = MakeGreedySecondary(C1)(P)*)
-  (*module H2 = MakeGreedySecondary(C2)(P)*)
-
-  (*let selector now bfable restime resjob resres =*)
-    (*let r = Random.float 1.*)
-    (*in let sel = if r<W.p then*)
-      (*H1.selector*)
-    (*else*)
-      (*H2.selector*)
-    (*in sel now bfable restime resjob resres*)
-(*end*)
-
-
-(*module MakeEasyBernouilli(C1:Criteria)(C2:Criteria)(B:BernouilliReservatorParam)(CB:Criteria)(P: SchedulerParam) =*)
-(*MakeEasyScheduler(MakeBernouilliPrimary(B)(P)(MakeGreedyPrimary(P)(C1))(MakeGreedyPrimary(P)(C2)))(MakeGreedySecondary(CB)(P))(P)*)
-
-
-(*module type BernouilliReservatorParam = sig*)
-  (*val p : float*)
-(*end*)
-
-
-(*module MakeRandomizedSecondary(C:Criteria)(P:SchedulerParam)*)
-(*:Secondary*)
-(*=struct*)
-
-  (*let selector (now:int) (bfable:int list) (restime:int) resjob resres =*)
-    (*let weights : float list = List.map (C.criteria P.jobs now) bfable*)
-    (*in let minweight = BatList.min weights*)
-    (*in let scaledweights = List.map (fun x-> x-.minweight) weights*)
-    (*in let sum : float = List.fold_left (fun acc x -> acc +. x) 0. scaledweights*)
-    (*in let nd = List.map2 (fun x y -> (x /. sum, y)) scaledweights bfable*)
-    (*in pick_random_weighted nd*)
-(*end*)
-
-(*module MakeEasyRandomizedGreedy (CR:Criteria)(CB:Criteria)(P:SchedulerParam) =*)
-(*MakeEasyScheduler(MakeGreedyPrimary(P)(CR))(MakeRandomizedSecondary(CB)(P))(P)*)
-
-(*module MakeEpsGreedySecondary(E:EpsGreedyParameter)(C:Criteria)(P:SchedulerParam)*)
-(*:Secondary*)
-(*= struct*)
-  (*let selector (now:int) (bfable:int list) (restime:int) resjob resres =*)
-    (*let id = List.hd bfable*)
-    (*in let rec argmax v ip = function*)
-    (*|i::is when v <= (C.criteria P.jobs now i) -> argmax (C.criteria P.jobs now i) i is*)
-    (*|i::is -> argmax v ip is*)
-    (*|[] -> ip*)
-    (*in let r = Random.float (float_of_int 1)*)
-    (*in if r<E.epsilon*)
-    (*then*)
-      (*List.nth bfable (Random.int (List.length bfable))*)
-    (*else*)
-      (*argmax (C.criteria P.jobs now id) id bfable*)
-(*end*)
-
-(*module type EpsGreedyParameter = sig*)
-  (*val epsilon : float*)
-(*end*)
-
-(*module RandomSecondary : Secondary*)
-(*= struct*)
-  (*let selector _ bfable _ _ _ =*)
-    (*let i =  Random.int (List.length bfable)*)
-    (*in List.nth bfable i*)
-(*end*)
-
-(*module MakeRandomHeuristicSecondary*)
-(*(C1:Criteria)*)
-(*(C2:Criteria)*)
-(*(P:SchedulerParam)*)
-(*: Secondary*)
-(*=struct*)
-  (*module H1 = MakeGreedySecondary(C1)(P)*)
-  (*module H2 = MakeGreedySecondary(C2)(P)*)
-
-  (*let selector now bfable restime resjob resres =*)
-    (*let h = Random.bool ()*)
-    (*in let sel = if h then*)
-      (*H1.selector*)
-    (*else*)
-      (*H2.selector*)
-    (*in sel now bfable restime resjob resres*)
-(*end*)

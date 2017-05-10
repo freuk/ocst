@@ -33,6 +33,9 @@ let copts_t =
   in let max_procs =
     let doc = "Enforce max_procs value." in
       Arg.(value & opt int 0 & info ["max_procs"] ~docv:"MAXPROCS" ~docs ~doc)
+  in let initial_state =
+    let doc = "Initial system state file" in
+      Arg.(value & opt (some file) None & info ["initial_state"] ~docv:"INITSTATE" ~docs ~doc)
   in let stats =
     let statdescs = String.concat ", " (List.map fst Statistics.allStats)
     in let doc = ("Specify statistics output. You may use a comma-separated list of arguments among: "^statdescs) in
@@ -43,7 +46,7 @@ let copts_t =
   in let swf_in =
     let doc = "Input swf file." in
       Arg.(required & pos 0 (some file) None & info [] ~docv:"SWFINPUT" ~doc)
-  in Term.(const copts $ swf_in $ swf_out $  max_procs $ debug $ seed $ stats)
+  in Term.(const copts $ swf_in $ swf_out $ initial_state $  max_procs $ debug $ seed $ stats)
 
 let help_cmd =
   let topic =
@@ -125,7 +128,7 @@ let mixed_cmd =
       Term.(const Simulate.mixed $ copts_t $ backfill $ feature_out $ alpha $ alpha_threshold $ alpha_advanced $ alpha_system $ proba $sampling),
       Term.info "mixed" ~doc ~sdocs:docs ~man
 
-let resim_cmd =
+let contextual_cmd =
   let docs = copts_sect
   in let perf_out =
     let doc = "Specify output perf file."
@@ -133,139 +136,17 @@ let resim_cmd =
   in let period =
       let doc = "Period"
       in Arg.(value & opt int 86400 & info ["period"] ~docv:"PERIOD" ~doc)
-  in let doc = "Simulates the run of a classic EASY backfilling with the FCFS primary/backfilling policy and prints periodical resimulation output." in
-    in let policies=
+  in let policies=
     let doc = "Policies." in
     Arg.(value & opt (list ~sep:',' (enum Metrics.criteriaList)) [BatList.assoc "fcfs" Metrics.criteriaList] & info ["policies"] ~docv:"POLICIES" ~doc)
-  let man =
+  in let doc = "Simulates the run of a classic EASY backfilling with the FCFS primary/backfilling policy and prints periodical resimulation output." 
+    in let man =
     [`S "DESCRIPTION";
      `P doc] @ help_secs
   in
-    Term.(const Simulate.resimulate $ copts_t $ period $ perf_out),
+    Term.(const Simulate.contextual $ copts_t $ period $ perf_out $ policies),
     Term.info "fixed" ~doc ~sdocs:docs ~man
-
-(*let mixed_cmd =*)
-(*let docs = copts_sect*)
-(*in let backfill =*)
-(*let doc = "Backfilling policy." in*)
-(*Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "wait" Metrics.criteriaList) & info ["backfill"] ~docv:"BACKFILL" ~doc)*)
-(*in let objective =*)
-(*let doc = "Objective for thresholding." in*)
-(*Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "wait" Metrics.criteriaList) & info ["th_objective"] ~docv:"TOBJECTIVE" ~doc)*)
-(*in let threshold =*)
-(*let doc = "Threshold value." in*)
-(*Arg.(value & opt float 10000. & info ["threshold"] ~docv:"THRESHOLD" ~doc)*)
-(*in let alpha =*)
-(*let doc = "Mixing parameter." in*)
-(*Arg.(value & opt (list ~sep:',' float) Metrics.zeroMixed & info ["alpha"] ~docv:"ALPHA" ~doc)*)
-(*in let mixingtype =*)
-(*let doc = "Mixing type." in*)
-(*Arg.(value & opt (enum Simulate.mixingList) (BatList.assoc "prob" Simulate.mixingList) & info ["mixtype"] ~docv:"MIXTYPE" ~doc)*)
-(*in*)
-(*let doc = "Simulate a EASY-backfilling scheduler with a mixed primary heuristic and a fixed BF heuristic, using thresholding on a main*)
-(*objective. The mixing is done using (1-alpha)*c1 + alpha*c2 where c1 and c2 are the two initial criterias" in*)
-(*let man =*)
-(*[`S "DESCRIPTION";*)
-(*`P doc] @ help_secs*)
-(*in*)
-(*Term.(const Simulate.mixed$ copts_t $ alpha $ backfill $ objective $ threshold $ mixingtype),*)
-(*Term.info "mixed" ~doc ~sdocs:docs ~man*)
-
-(*let threshold_cmd =*)
-(*let docs = copts_sect*)
-(*in let reservation =*)
-(*let doc = "Primary policy." in*)
-(*Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "wait" Metrics.criteriaList) & info ["primary"] ~docv:"PRIMARY" ~doc)*)
-(*in let backfill =*)
-(*let doc = "Backfilling policy." in*)
-(*Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "wait" Metrics.criteriaList) & info ["backfill"] ~docv:"BACKFILL" ~doc)*)
-(*in let objective =*)
-(*let doc = "Objective for thresholding." in*)
-(*Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "wait" Metrics.criteriaList) & info ["th_objective"] ~docv:"TOBJECTIVE" ~doc)*)
-(*in let threshold =*)
-(*let doc = "Threshold value." in*)
-(*Arg.(value & opt float 10000. & info ["threshold"] ~docv:"THRESHOLD" ~doc)*)
-(*in*)
-(*let doc = "Simulate a EASY-backfilling scheduler with a fixed BF heuristic using thresholding on a main*)
-(*objective." in*)
-(*let man =*)
-(*[`S "DESCRIPTION";*)
-(*`P doc] @ help_secs*)
-(*in*)
-(*Term.(const Simulate.threshold $ copts_t $ reservation $ backfill $ objective $ threshold),*)
-(*Term.info "threshold" ~doc ~sdocs:docs ~man*)
-
-(*let bandit_random_cmd =*)
-(*let docs = copts_sect*)
-(*in let backfill =*)
-(*let doc = "Backfilling type." in*)
-(*Arg.(value & opt (enum Metrics.criteriaList) (module Metrics.CriteriaWait : Metrics.CriteriaSig) & info ["backfill"] ~docv:"BACKFILL" ~doc)*)
-(*in let policies=*)
-(*let doc = "Policies." in*)
-(*Arg.(value & opt (list ~sep:',' (enum Metrics.criteriaList)) Bandit.default_policies & info ["policies"] ~docv:"POLICIES" ~doc)*)
-(*in let period =*)
-(*let doc = "Period value." in*)
-(*Arg.(value & opt int 86400 & info ["period"] ~docv:"PERIOD" ~doc)*)
-(*in let threshold =*)
-(*let doc = "Threshold value." in*)
-(*Arg.(value & opt float 0. & info ["threshold"] ~docv:"THRESHOLD" ~doc)*)
-(*in*)
-(*let doc = "Simulates the run of a random Bandit EASY backfilling scheduler." in*)
-(*let man =*)
-(*[`S "DESCRIPTION";*)
-(*`P doc] @ help_secs*)
-(*in*)
-(*Term.(const Simulate.randomBandit $ copts_t $ period  $ backfill $ threshold $ policies),*)
-(*Term.info "bandit-random" ~doc ~sdocs:docs ~man*)
-
-(*[>Arg.(value & opt (list ~sep:',' (pair ~sep:'-' (enum Metrics.criteriaList) (enum Metrics.criteriaList))) default_policies & info ["policies"] ~docv:"POLICIES" ~doc)<]*)
-
-(*let bandit_cmd =*)
-(*let docs = copts_sect*)
-(*in let clairvoyant =*)
-(*let doc = "Use full feedback." in*)
-(*Arg.(value & flag & info ["clairvoyant"] ~docs ~doc)*)
-(*in let clvOut =*)
-(*let doc = "Clairvoyant output file." in*)
-(*Arg.(value & opt (some string) None & info ["clvo"] ~docv:"LOGCLV" ~doc)*)
-(*in let noisy =*)
-(*let doc = "Make the full feedback noisy." in*)
-(*Arg.(value & flag & info ["noisy"] ~docs ~doc)*)
-(*in let backfill =*)
-(*let doc = "Backfilling type." in*)
-(*Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "wait" Metrics.criteriaList) & info ["backfill"] ~docv:"BACKFILL" ~doc)*)
-(*in let explo =*)
-(*let doc = "Bandit hyperparameter." in*)
-(*Arg.(value & opt float 0.7 & info ["hyperparameter"] ~docv:"HYPERPARAM" ~doc)*)
-(*in let policies=*)
-(*let doc = "Policies." in*)
-(*Arg.(value & opt (list ~sep:',' (enum Metrics.criteriaList)) Bandit.default_policies & info ["policies"] ~docv:"POLICIES" ~doc)*)
-(*in let rewardType =*)
-(*let doc = "Use opposite Reward." in*)
-(*Arg.(value & opt (enum Bandit.rewardTypeEncoding) Bandit.Basic & info ["rewardtype"] ~docs ~doc)*)
-(*in let period =*)
-(*let doc = "Period value." in*)
-(*Arg.(value & opt int 86400 & info ["period"] ~docv:"PERIOD" ~doc)*)
-(*in let threshold =*)
-(*let doc = "Threshold value." in*)
-(*Arg.(value & opt float 0. & info ["threshold"] ~docv:"THRESHOLD" ~doc)*)
-(*in let reset_out =*)
-(*let doc = "Specify reset output file." in*)
-(*Arg.(value & opt (some string) None & info ["reset"] ~docv:"RESET" ~doc)*)
-(*in let select_out =*)
-(*let doc = "Specify select output file." in*)
-(*Arg.(value & opt (some string) None & info ["select"] ~docv:"SELECT" ~doc)*)
-(*in*)
-(*let doc = "Simulates the run of a Bandit EASY backfilling scheduler." in*)
-(*let man =*)
-(*[`S "DESCRIPTION";*)
-(*`P doc] @ help_secs*)
-(*in*)
-(*Term.(const Simulate.bandit $ copts_t $ explo $ rewardType $ period  $ backfill $ threshold $ policies $ reset_out $ clairvoyant $ noisy $ select_out $ clvOut),*)
-(*Term.info "bandit-onpolicy" ~doc ~sdocs:docs ~man*)
-
-(*let cmds = [mixed_cmd;bandit_random_cmd;bandit_cmd; simulate_cmd; threshold_cmd; help_cmd]*)
-let cmds = [fixed_cmd; mixed_cmd; resim_cmd; help_cmd]
+let cmds = [fixed_cmd; mixed_cmd; contextual_cmd; help_cmd]
 
 let default_cmd =
   let doc = "a backfilling simulator" in

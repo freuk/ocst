@@ -1,6 +1,6 @@
 version = "%%VERSION_NUM%%"
 description = "Ocaml Multi-Armed Bandits"
-requires = "cmdliner,batteries"
+requires = "cmdliner,batteries,ppx_sexp_conv"
 archive(byte) = "ocs.cma"
 archive(native) = "ocs.cmxa"
 plugin(byte) = "ocs.cma"

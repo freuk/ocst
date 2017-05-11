@@ -36,6 +36,9 @@ let copts_t =
   in let initial_state =
     let doc = "Initial system state file" in
       Arg.(value & opt (some file) None & info ["initial_state"] ~docv:"INITSTATE" ~docs ~doc)
+  in let additional_jobs =
+    let doc = "Additional jobs." in
+      Arg.(value & opt (some file) None & info ["additional_jobs"] ~docv:"ADDJOBS" ~docs ~doc)
   in let stats =
     let statdescs = String.concat ", " (List.map fst Statistics.allStats)
     in let doc = ("Specify statistics output. You may use a comma-separated list of arguments among: "^statdescs) in
@@ -46,7 +49,7 @@ let copts_t =
   in let swf_in =
     let doc = "Input swf file." in
       Arg.(required & pos 0 (some file) None & info [] ~docv:"SWFINPUT" ~doc)
-  in Term.(const copts $ swf_in $ swf_out $ initial_state $  max_procs $ debug $ seed $ stats)
+  in Term.(const copts $ swf_in $ swf_out $ initial_state $ additional_jobs $ max_procs $ debug $ seed $ stats)
 
 let help_cmd =
   let topic =
@@ -147,6 +150,27 @@ let contextual_cmd =
     Term.(const Simulate.contextual $ copts_t $ period $ perf_out $ policies),
     Term.info "fixed" ~doc ~sdocs:docs ~man
 let cmds = [fixed_cmd; mixed_cmd; contextual_cmd; help_cmd]
+
+let printstate_cmd =
+  let docs = copts_sect
+  in let perf_out =
+    let doc = "Specify output perf file."
+    in Arg.(value & opt (some string) None & info ["perf_out"] ~docv:"OUTPERF" ~doc)
+  in let period =
+      let doc = "Period"
+      in Arg.(value & opt int 86400 & info ["period"] ~docv:"PERIOD" ~doc)
+  in let policies=
+    let doc = "Policies." in
+    Arg.(value & opt (list ~sep:',' (enum Metrics.criteriaList)) [BatList.assoc "fcfs" Metrics.criteriaList] & info ["policies"] ~docv:"POLICIES" ~doc)
+  in let doc = "Simulates the run of a classic EASY backfilling with the FCFS primary/backfilling policy and prints periodical resimulation output." 
+    in let man =
+    [`S "DESCRIPTION";
+     `P doc] @ help_secs
+  in
+    Term.(const Simulate.contextual $ copts_t $ period $ perf_out $ policies),
+    Term.info "fixed" ~doc ~sdocs:docs ~man
+
+let cmds = [fixed_cmd; mixed_cmd; contextual_cmd; printstate_cmd help_cmd]
 
 let default_cmd =
   let doc = "a backfilling simulator" in

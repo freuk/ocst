@@ -13,17 +13,41 @@ type copts = {
   swf_in: string;
   swf_out : string option;
   initial_state : string option;
+  additional_jobs : string option;
   max_procs : int;
   stats : (module Statistics.Stat) list;
   debug : bool}
-let copts swf_in swf_out initial_state max_procs debug seed stats =
+let copts swf_in swf_out initial_state additional_jobs max_procs debug seed stats =
   Random.init seed;
-  {swf_in; swf_out; initial_state; max_procs; debug; stats}
+  {swf_in; swf_out; initial_state; additional_jobs; max_procs; debug; stats}
 
 let run_simulator ?log_out:(log_out=None) copts reservation backfill job_table max_procs=
   let max_procs,h,s =
     let real_mp = max max_procs copts.max_procs
-    in real_mp,Engine.EventHeap.of_job_table job_table,System.emptySystemState real_mp
+    and heap_before = Engine.EventHeap.of_job_table job_table
+    in let () = match copts.additional_jobs with
+      |None -> ()
+      |Some fn -> let jt,_ = Io.parse_jobs fn
+       in Hashtbl.iter (fun i j -> Hashtbl.add job_table i j) jt;
+    in let s,h = match copts.initial_state with
+      |None -> System.empty_system real_mp,heap_before
+      |Some fn ->
+          begin
+            let ic = open_in fn
+            in let s = try System.system_of_sexp (Sexplib.Sexp.input_sexp ic)
+                       with e ->
+                         close_in_noerr ic;
+                         raise e
+            in let events = 
+              let make_event (t,i) : Engine.EventHeap.elem= 
+                { time=(Hashtbl.find job_table i).r+t;
+                  id=i;
+                  event_type=Engine.EventHeap.Finish}
+              in List.map make_event s.running
+            in let h = List.fold_left Engine.EventHeap.insert heap_before events
+            in s,h
+          end
+    in real_mp,h,s
   in let module SchedulerParam = struct let jobs = job_table end
   in let module CSec = (val backfill:Metrics.Criteria)
   in let module Primary = (val reservation:Easy.Primary)
@@ -44,54 +68,54 @@ let run_simulator ?log_out:(log_out=None) copts reservation backfill job_table m
 let fixed copts reservation backfill =
   let jt,mp = Io.parse_jobs copts.swf_in
   in let module M = Easy.MakeGreedyPrimary((val reservation:Metrics.Criteria))(struct let jobs = jt end)
-  in run_simulator copts (module M:Easy.Primary) backfill jt mp
+                                                                               in run_simulator copts (module M:Easy.Primary) backfill jt mp
 
 let mixed copts backfill feature_out alpha alpha_threshold alpha_poly alpha_system proba sampling =
   let jt,mp = Io.parse_jobs copts.swf_in
   in if proba then
     let module Pc =struct
-            let sampling = sampling
-            let criterias = 
-              let f ftlist (param:float list * float list * float list) : Metrics.criteria list = List.map snd ftlist
-              in [ BatOption.map (f features_job_plus)               alpha;
-                   BatOption.map (f features_job_threshold) alpha_threshold;
-                   BatOption.map (f features_job_advanced) alpha_poly;
-                   BatOption.map (f features_system_job) alpha_system;]
-                |> List.filter BatOption.is_some 
-                 |> List.map BatOption.get
-                 |> BatList.reduce List.append
-            let alpha =
-              [alpha;alpha_threshold;alpha_poly;alpha_system]
-              |> List.filter BatOption.is_some
-              |> List.map BatOption.get
-              |> List.map BatTuple.Tuple3.first
-              |> BatList.reduce List.append
-          end
-    in let module M = Easy.MakeProbabilisticPrimary(Pc)(struct let jobs=jt end)
-    in run_simulator copts (module M:Easy.Primary) backfill jt mp
-  else
-    let m =
-      [ BatOption.map (Metrics.makeMixed features_job_plus)               alpha;
-        BatOption.map (Metrics.makeMixed features_job_threshold) alpha_threshold;
-        BatOption.map (Metrics.makeMixed features_job_advanced) alpha_poly;
-        BatOption.map (Metrics.makeMixed features_system_job) alpha_system;]
-        |> List.filter BatOption.is_some
-      |> List.map BatOption.get
-      |> BatList.reduce Metrics.makeSum
-    in let module P = (val m:Metrics.Criteria)
-    in let module M = Easy.MakeGreedyPrimary(P)(struct let jobs=jt end)
-    in run_simulator ~log_out:feature_out copts (module M:Easy.Primary) backfill jt mp
+      let sampling = sampling
+      let criterias =
+        let f ftlist (param:float list * float list * float list) : Metrics.criteria list = List.map snd ftlist
+        in [ BatOption.map (f features_job_plus)               alpha;
+             BatOption.map (f features_job_threshold) alpha_threshold;
+             BatOption.map (f features_job_advanced) alpha_poly;
+             BatOption.map (f features_system_job) alpha_system;]
+          |> List.filter BatOption.is_some
+           |> List.map BatOption.get
+           |> BatList.reduce List.append
+      let alpha =
+        [alpha;alpha_threshold;alpha_poly;alpha_system]
+          |> List.filter BatOption.is_some
+        |> List.map BatOption.get
+        |> List.map BatTuple.Tuple3.first
+        |> BatList.reduce List.append
+    end
+      in let module M = Easy.MakeProbabilisticPrimary(Pc)(struct let jobs=jt end)
+                                                          in run_simulator copts (module M:Easy.Primary) backfill jt mp
+                                                          else
+                                                            let m =
+                                                              [ BatOption.map (Metrics.makeMixed features_job_plus)               alpha;
+                                                                BatOption.map (Metrics.makeMixed features_job_threshold) alpha_threshold;
+                                                                BatOption.map (Metrics.makeMixed features_job_advanced) alpha_poly;
+                                                                BatOption.map (Metrics.makeMixed features_system_job) alpha_system;]
+                                                                |> List.filter BatOption.is_some
+                                                              |> List.map BatOption.get
+                                                              |> BatList.reduce Metrics.makeSum
+                                                            in let module P = (val m:Metrics.Criteria)
+                                                            in let module M = Easy.MakeGreedyPrimary(P)(struct let jobs=jt end)
+                                                                                                        in run_simulator ~log_out:feature_out copts (module M:Easy.Primary) backfill jt mp
 
 let contextual copts period perf_out policies=
   let jt,mp = Io.parse_jobs copts.swf_in
   and getcrit m =
     let module M = (val m:Metrics.Criteria)
     in M.criteria
-  in let module P = 
-    struct
-      let period = period
-      let policies = List.map getcrit policies 
-    end
+  in let module P =
+struct
+  let period = period
+  let policies = List.map getcrit policies
+end
   in let module M = Easy.MakePeriodPrimary(P)(struct let jobs = jt end)
-  in let mbackfill = (module Metrics.FCFS:Metrics.Criteria)
-  in run_simulator ~log_out:perf_out copts (module M:Easy.Primary) (module Metrics.FCFS:Criteria) jt mp
+                                              in let mbackfill = (module Metrics.FCFS:Metrics.Criteria)
+                                              in run_simulator ~log_out:perf_out copts (module M:Easy.Primary) (module Metrics.FCFS:Criteria) jt mp

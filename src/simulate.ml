@@ -21,7 +21,7 @@ let copts swf_in swf_out initial_state additional_jobs max_procs debug seed stat
   Random.init seed;
   {swf_in; swf_out; initial_state; additional_jobs; max_procs; debug; stats}
 
-let run_simulator ~period:86400 ?state_out:(state_out = None) ?log_out:(log_out=None) copts reservation backfill job_table max_procs=
+let run_simulator ?period:(period=86400) ?state_out:(state_out = None) ?log_out:(log_out=None) copts reservation backfill job_table max_procs=
   let max_procs,h,s =
     let real_mp = max max_procs copts.max_procs
     and heap_before = Engine.EventHeap.of_job_table job_table
@@ -56,7 +56,7 @@ let run_simulator ~period:86400 ?state_out:(state_out = None) ?log_out:(log_out=
   in let module S =
     Engine.MakeSimulator(Scheduler)(struct include SchedulerParam end)
   in let hist,log = match state_out with
-    |Some s_out -> (S.simulate_logstates  ~output_list:state_out ~period:period h s [] [])
+    |Some s_out -> (S.simulate_logstates ~output_list:s_out ~period:period ~heap:h ~system:s ~history:[] ~log:[])
     |None -> (S.simulate h s [] [])
   in (Io.hist_to_swf job_table copts.swf_out hist;
       Io.log_to_file log_out Primary.desc log;
@@ -128,5 +128,5 @@ let mixed copts backfill feature_out alpha alpha_threshold alpha_poly alpha_syst
       let l = BatList.map2 (fun x y -> (x,y)) state_out additional_out
       in BatList.map2 (fun (x,y) z -> (x,y,z)) l swfin_out
     in let mbackfill = (module Metrics.FCFS:Metrics.Criteria)
-      in let module M = Easy.MakeStatePrinterPrimary(Metrics.FCFS)(struct let jobs = jt end)
+    in let module M = Easy.MakeGreedyPrimary(Metrics.FCFS)(struct let jobs = jt end)
     in run_simulator ~state_out:(Some l) copts (module M:Easy.Primary) mbackfill jt mp

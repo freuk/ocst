@@ -40,7 +40,6 @@ end
 
 type history = (int*int) list (*list of (id,sub_time)*)
 
-
 (************************************** Engine ***********************************)
 (*TODO refactor. Statistics module*)
 module type Stat = sig
@@ -62,7 +61,7 @@ end
 module type Simulator = sig
   val simulate : EventHeap.t -> system -> history -> log -> (history * log)
   val simulate_logstates :
-    output_list:'a list
+    output_list:('a * 'b * 'c) list
     -> ?period:int
     -> heap:EventHeap.t
     -> system:system
@@ -144,7 +143,7 @@ struct
             in let s,h,hi = (executeDecisions s h now decisions hist)
             in step s h hi log last_system_log_time last_heap outl
           end
-    in step system eventheap history log (EventHeap.find_min eventheap).time outputl
+    in step system eventheap history log (EventHeap.find_min eventheap).time eventheap outputl
 end
 
 (************************************** Stats ************************************)

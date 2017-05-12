@@ -142,14 +142,13 @@ let contextual_cmd =
   in let policies=
     let doc = "Policies." in
     Arg.(value & opt (list ~sep:',' (enum Metrics.criteriaList)) [BatList.assoc "fcfs" Metrics.criteriaList] & info ["policies"] ~docv:"POLICIES" ~doc)
-  in let doc = "Simulates the run of a classic EASY backfilling with the FCFS primary/backfilling policy and prints periodical resimulation output." 
+  in let doc = "Simulates the run of a classic EASY backfilling with the FCFS primary/backfilling policy and prints periodical resimulation output."
     in let man =
     [`S "DESCRIPTION";
      `P doc] @ help_secs
   in
     Term.(const Simulate.contextual $ copts_t $ period $ perf_out $ policies),
     Term.info "fixed" ~doc ~sdocs:docs ~man
-let cmds = [fixed_cmd; mixed_cmd; contextual_cmd; help_cmd]
 
 let printstate_cmd =
   let docs = copts_sect
@@ -159,19 +158,22 @@ let printstate_cmd =
   in let additional_out =
     let doc = "Specify output additional job files."
     in Arg.(value & opt (list ~sep:',' string) [] & info ["add_out"] ~docv:"OUTADD" ~doc)
+  in let swfin_out =
+    let doc = "Specify output swfin job files."
+    in Arg.(value & opt (list ~sep:',' string) [] & info ["swfin_out"] ~docv:"SWFINOUT" ~doc)
   in let period =
       let doc = "Period"
       in Arg.(value & opt int 86400 & info ["period"] ~docv:"PERIOD" ~doc)
   in let policies=
     let doc = "Policies." in
     Arg.(value & opt (list ~sep:',' (enum Metrics.criteriaList)) [BatList.assoc "fcfs" Metrics.criteriaList] & info ["policies"] ~docv:"POLICIES" ~doc)
-  in let doc = "Simulates the run of a classic EASY backfilling with the FCFS primary/backfilling policy and prints periodical resimulation output." 
+  in let doc = "Simulates the run of a classic EASY backfilling with the FCFS primary/backfilling policy and prints periodical resimulation output."
     in let man =
     [`S "DESCRIPTION";
      `P doc] @ help_secs
   in
-    Term.(const Simulate.printstate $ copts_t $ period $ state_out $ additional_out),
-    Term.info "fixed" ~doc ~sdocs:docs ~man
+    Term.(const Simulate.printstate $ copts_t $ period $ state_out $ additional_out $ swfin_out),
+    Term.info "printstate" ~doc ~sdocs:docs ~man
 
 let cmds = [fixed_cmd; mixed_cmd; contextual_cmd; printstate_cmd; help_cmd]
 

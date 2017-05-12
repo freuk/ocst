@@ -153,9 +153,12 @@ let cmds = [fixed_cmd; mixed_cmd; contextual_cmd; help_cmd]
 
 let printstate_cmd =
   let docs = copts_sect
-  in let perf_out =
-    let doc = "Specify output perf file."
-    in Arg.(value & opt (some string) None & info ["perf_out"] ~docv:"OUTPERF" ~doc)
+  in let state_out =
+    let doc = "Specify output state files."
+    in Arg.(value & opt (list ~sep:',' string) [] & info ["state_out"] ~docv:"OUTSTATE" ~doc)
+  in let additional_out =
+    let doc = "Specify output additional job files."
+    in Arg.(value & opt (list ~sep:',' string) [] & info ["add_out"] ~docv:"OUTADD" ~doc)
   in let period =
       let doc = "Period"
       in Arg.(value & opt int 86400 & info ["period"] ~docv:"PERIOD" ~doc)
@@ -167,10 +170,10 @@ let printstate_cmd =
     [`S "DESCRIPTION";
      `P doc] @ help_secs
   in
-    Term.(const Simulate.contextual $ copts_t $ period $ perf_out $ policies),
+    Term.(const Simulate.printstate $ copts_t $ period $ state_out $ additional_out),
     Term.info "fixed" ~doc ~sdocs:docs ~man
 
-let cmds = [fixed_cmd; mixed_cmd; contextual_cmd; printstate_cmd help_cmd]
+let cmds = [fixed_cmd; mixed_cmd; contextual_cmd; printstate_cmd; help_cmd]
 
 let default_cmd =
   let doc = "a backfilling simulator" in

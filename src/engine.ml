@@ -61,6 +61,14 @@ end
 (*simulator module*)
 module type Simulator = sig
   val simulate : EventHeap.t -> system -> history -> log -> (history * log)
+  val simulate_logstates :
+    output_list:'a list
+    -> ?period:int
+    -> heap:EventHeap.t
+    -> system:system
+    -> history:history
+    -> log:log
+    -> (history * log)
 end
 
 (*simulator building functor*)
@@ -104,27 +112,39 @@ struct
             in let s,h,hi = (executeDecisions s h now decisions hist)
             in step s h hi log
     in step system eventheap hist log
+
+  let simulate_logstates
+    ~output_list:outputl
+    ?period:(period=86400)
+    ~heap:eventheap
+    ~system:system
+    ~history:history
+    ~log:log =
+    (*step h s where h is the event heap and s is the system*)
+    let rec step syst heap hist log last_system_log_time last_heap outl =
+      match EventHeap.unloadEvents heap with
+        | EventHeap.EndSimulation -> (hist, log)
+        | EventHeap.Events (h, now, eventList) ->
+          begin
+            let outl, last_system_log_time, last_heap = match outl with
+              |[] -> outl, last_system_log_time, last_heap
+              |x::xs ->
+                  if now-last_system_log_time < period then
+                    outl, last_system_log_time, last_heap
+                  else
+                    let out_state,out_addjobs,out_intervalsum = x
+                    in begin
+                      Io.print_state P.jobs out_state syst;
+                      Io.print_addjobs P.jobs out_addjobs syst;
+                      Io.print_intervalsub P.jobs last_heap period out_intervalsum;
+                      (xs,now,heap)
+                    end
+            in let s = executeEvents ~eventList:eventList syst
+            in let decisions, log = Sch.schedule now s log
+            in let s,h,hi = (executeDecisions s h now decisions hist)
+            in step s h hi log last_system_log_time last_heap outl
+          end
+    in step system eventheap history log (EventHeap.find_min eventheap).time outputl
 end
 
 (************************************** Stats ************************************)
-
-(*module StatWait (P:Easy.SchedulerParam) : Stat*)
-                   (*with type outputStat = float =*)
-(*struct*)
-  (*type outputStat = float*)
-  (*module M = MakeWaitAccumulator(SystemParam)*)
-  (*let n = ref 0*)
-  (*let m = ref 0*)
-  (*let getN () = !n*)
-  (*let getStat () = !m*)
-  (*let incStat t jl =*)
-    (*(m:= List.fold_left (fun acc j -> acc + Metrics.CriteriaWait.criteria P.jobs now i) !m jl;*)
-     (*n:= !n + (List.length jl))*)
-  (*let reset () =  (n := 0; m:=0 )*)
-(*end*)
-
-(*module type StatMetricSig = sig*)
-  (*val add : int -> int list -> unit*)
-  (*val get : unit -> float*)
-  (*val reset : unit -> unit*)
-(*end*)

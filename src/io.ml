@@ -26,6 +26,10 @@ type args_subtrace = {
   weekspan                   :  int;
 }
 
+let print_state job_table out_state system = ()
+let print_addjobs job_table out_addjobs system = ()
+let print_intervalsub job_table last_heap period out_intervalsum = ()
+
 let parse_subtrace_args () =
   let input_filename= ref "";
   and wid= ref 0;

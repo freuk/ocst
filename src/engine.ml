@@ -61,7 +61,7 @@ end
 module type Simulator = sig
   val simulate : EventHeap.t -> system -> history -> log -> (history * log)
   val simulate_logstates :
-    output_list:('a * 'b * 'c) list
+    output_list:(string * string * string) list
     -> ?period:int
     -> heap:EventHeap.t
     -> system:system

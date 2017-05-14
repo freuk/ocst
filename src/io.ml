@@ -26,7 +26,62 @@ type args_subtrace = {
   weekspan                   :  int;
 }
 
-let print_state job_table out_state system = ()
+let wrap_io filename_option printer=
+  let do_io fn =
+    let c = open_out fn
+    in try
+      printer c;
+      close_out c
+    with e->
+      close_out_noerr c;
+      raise e
+  in BatOption.may do_io filename_option
+
+let printjob now j id output_channel =
+  let wait_time = now-j.r
+  in  Printf.fprintf output_channel
+        "%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d\n"
+        id        (* 1  Job Number                     *)
+        j.r       (* 2  Submit Time                    *)
+        wait_time (* 3  Wait Time                      *)
+        j.p       (* 4  Run Time                       *)
+        j.q       (* 5  Number Of Allocated Processors *)
+        0         (* 6  Average CPU Time Used          *)
+        0         (* 7  Used Memory                    *)
+        j.q       (* 8  Requested Number Of Processors *)
+        j.p_est   (* 9  Requested Time                 *)
+        0         (* 10 Requested Memory               *)
+        1         (* 11 Status                         *)
+        0         (* 12 User ID                        *)
+        0         (* 13 Group ID                       *)
+        0         (* 14 Executable Number              *)
+        0         (* 15 Queue Number                   *)
+        0         (* 16 Partition Number               *)
+        0         (* 17 Preceding Job Number           *)
+        0         (* 18 Think Time From Preceding Job  *)
+
+
+
+let hist_to_swf jobs filename_option hist =
+  let printer chan =
+    let f (i, t) = printjob t (Hashtbl.find jobs i) i chan
+    in List.iter f hist
+  in wrap_io filename_option printer
+
+let log_to_file filename_option desc log =
+  let printer chan =
+    Printf.fprintf chan "time,id,%s\n" desc;
+    let f lf =
+      let strings = List.map (Printf.sprintf "%0.3f") lf
+      in Printf.fprintf chan "%s\n" (String.concat "," strings)
+    in List.iter f log
+  in wrap_io filename_option printer
+
+let print_state job_table out_state system = 
+  let printer c = 
+    Sexplib.Sexp.output_hum_indent 2 c (System.sexp_of_system system)
+  in wrap_io (Some out_state) printer
+
 let print_addjobs job_table out_addjobs system = ()
 let print_intervalsub job_table last_heap period out_intervalsum = ()
 
@@ -80,55 +135,6 @@ let parse_cleaner_args () =
     input_filename             = optionize_string !input_filename;
     output_channel             = open_out !output_filename;
   }
-
-let printjob now j id output_channel =
-  let wait_time = now-j.r
-  in  Printf.fprintf output_channel
-        "%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d\n"
-        id        (* 1  Job Number                     *)
-        j.r       (* 2  Submit Time                    *)
-        wait_time (* 3  Wait Time                      *)
-        j.p       (* 4  Run Time                       *)
-        j.q       (* 5  Number Of Allocated Processors *)
-        0         (* 6  Average CPU Time Used          *)
-        0         (* 7  Used Memory                    *)
-        j.q       (* 8  Requested Number Of Processors *)
-        j.p_est   (* 9  Requested Time                 *)
-        0         (* 10 Requested Memory               *)
-        1         (* 11 Status                         *)
-        0         (* 12 User ID                        *)
-        0         (* 13 Group ID                       *)
-        0         (* 14 Executable Number              *)
-        0         (* 15 Queue Number                   *)
-        0         (* 16 Partition Number               *)
-        0         (* 17 Preceding Job Number           *)
-        0         (* 18 Think Time From Preceding Job  *)
-
-let wrap_io filename_option printer=
-  let do_io fn =
-    let c = open_out fn
-    in try
-      printer c;
-      close_out c
-    with e->
-      close_out_noerr c;
-      raise e
-  in BatOption.may do_io filename_option
-
-let hist_to_swf jobs filename_option hist =
-  let printer chan =
-    let f (i, t) = printjob t (Hashtbl.find jobs i) i chan
-    in List.iter f hist
-  in wrap_io filename_option printer
-
-let log_to_file filename_option desc log =
-  let printer chan =
-    Printf.fprintf chan "time,id,%s\n" desc;
-    let f lf =
-      let strings = List.map (Printf.sprintf "%0.3f") lf
-      in Printf.fprintf chan "%s\n" (String.concat "," strings)
-    in List.iter f log
-  in wrap_io filename_option printer
 
 let printjob_shift r j id output_channel =
   Printf.fprintf output_channel

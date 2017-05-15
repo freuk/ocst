@@ -142,13 +142,13 @@ let contextual_cmd =
   in let policies=
     let doc = "Policies." in
     Arg.(value & opt (list ~sep:',' (enum Metrics.criteriaList)) [BatList.assoc "fcfs" Metrics.criteriaList] & info ["policies"] ~docv:"POLICIES" ~doc)
-  in let doc = "Simulates the run of a classic EASY backfilling with the FCFS primary/backfilling policy and prints periodical resimulation output."
+  in let doc = "Draft. Contextual policy choice."
     in let man =
     [`S "DESCRIPTION";
      `P doc] @ help_secs
   in
     Term.(const Simulate.contextual $ copts_t $ period $ perf_out $ policies),
-    Term.info "fixed" ~doc ~sdocs:docs ~man
+    Term.info "contextual" ~doc ~sdocs:docs ~man
 
 let printstate_cmd =
   let docs = copts_sect

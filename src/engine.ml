@@ -99,7 +99,7 @@ struct
                     in begin
                       Io.print_state P.jobs out_state syst;
                       Io.print_addjobs P.jobs out_addjobs syst;
-                      Io.print_intervalsub P.jobs last_heap period out_intervalsum last_system_log_time;
+                      Io.print_intervalsub P.jobs last_heap period out_intervalsum last_system_log_time period;
                       (xs,now,heap)
                     end
             in let s = executeEvents ~eventList:eventList syst

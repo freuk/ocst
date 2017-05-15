@@ -21,32 +21,32 @@ let copts swf_in swf_out initial_state additional_jobs max_procs debug seed stat
   {swf_in; swf_out; initial_state; additional_jobs; max_procs; debug; stats}
 
 let run_simulator ?period:(period=86400) ?state_out:(state_out = None) ?log_out:(log_out=None) copts reservation backfill job_table max_procs=
-  let max_procs,h,s =
+  let h,s =
     let real_mp = max max_procs copts.max_procs
     and heap_before = Events.EventHeap.of_job_table job_table
     in let () = match copts.additional_jobs with
       |None -> ()
       |Some fn -> let jt,_ = Io.parse_jobs fn
-    in Hashtbl.iter (fun i j -> Hashtbl.add job_table i j) jt;
-      in let s,h = match copts.initial_state with
+      in Hashtbl.iter (fun i j -> Hashtbl.add job_table i j) jt;
+    in let s,h = match copts.initial_state with
       |None -> System.empty_system real_mp,heap_before
       |Some fn ->
           begin
             let ic = open_in fn
             in let s = try System.system_of_sexp (Sexplib.Sexp.input_sexp ic)
-      with e ->
-        close_in_noerr ic;
+                       with e ->
+                         close_in_noerr ic;
                          raise e
             in let events =
               let make_event (t,i) : Events.EventHeap.elem=
-                { time=(Hashtbl.find job_table i).r+t;
+                { time=(Hashtbl.find job_table i).p+t;
                   id=i;
                   event_type=Events.EventHeap.Finish}
             in List.map make_event s.running
               in let h = List.fold_left Events.EventHeap.insert heap_before events
             in s,h
           end
-              in real_mp,h,s
+              in h,s
       in let module SchedulerParam = struct let jobs = job_table end
   in let module CSec = (val backfill:Metrics.Criteria)
       in let module Primary = (val reservation:Easy.Primary)

@@ -87,15 +87,14 @@ let print_addjobs job_table filename system =
     let my_printjob i =
       let j = Hashtbl.find job_table i
       in printjob j.r j i chan
-    in (List.map my_printjob system.waiting;
-        List.map (fun (_,i) -> my_printjob i) system.running)
+    in List.map my_printjob (system.waiting @ (List.map snd system.running))
   in wrap_io (Some filename) printer
 
-let print_intervalsub job_table last_heap period filename now=
+let print_intervalsub job_table last_heap period filename now period=
   let printer chan =
     let rec next h =
       let e = Events.EventHeap.find_min h
-      in if e.time > now then
+      in if e.time > (now + period) then
         ()
       else
         (printjob e.time (Hashtbl.find job_table e.id) e.id chan;

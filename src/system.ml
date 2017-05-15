@@ -2,7 +2,7 @@ open Sexplib.Std
 
 (************************************** Jobs *************************************)
 type job = { r:int; p:int; p_est:int; q:int; u:int} (*job data*)
-type job_table = (int,job) Hashtbl.t          (*id-indexed table*)
+type job_table = (int,job) Hashtbl.t                (*id-indexed table*)
 
 (************************************** System ***********************************)
 type system =

@@ -1,5 +1,4 @@
 open Metrics
-open Engine
 
 let timesched f x =
   let () = Printf.printf "%s\n" "Simulating.."
@@ -24,7 +23,7 @@ let copts swf_in swf_out initial_state additional_jobs max_procs debug seed stat
 let run_simulator ?period:(period=86400) ?state_out:(state_out = None) ?log_out:(log_out=None) copts reservation backfill job_table max_procs=
   let max_procs,h,s =
     let real_mp = max max_procs copts.max_procs
-    and heap_before = Engine.EventHeap.of_job_table job_table
+    and heap_before = Events.EventHeap.of_job_table job_table
     in let () = match copts.additional_jobs with
       |None -> ()
       |Some fn -> let jt,_ = Io.parse_jobs fn
@@ -39,12 +38,12 @@ let run_simulator ?period:(period=86400) ?state_out:(state_out = None) ?log_out:
         close_in_noerr ic;
                          raise e
             in let events =
-              let make_event (t,i) : Engine.EventHeap.elem=
+              let make_event (t,i) : Events.EventHeap.elem=
                 { time=(Hashtbl.find job_table i).r+t;
                   id=i;
-                  event_type=Engine.EventHeap.Finish}
+                  event_type=Events.EventHeap.Finish}
             in List.map make_event s.running
-              in let h = List.fold_left Engine.EventHeap.insert heap_before events
+              in let h = List.fold_left Events.EventHeap.insert heap_before events
             in s,h
           end
               in real_mp,h,s

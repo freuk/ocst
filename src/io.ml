@@ -77,13 +77,31 @@ let log_to_file filename_option desc log =
     in List.iter f log
   in wrap_io filename_option printer
 
-let print_state job_table out_state system = 
-  let printer c = 
+let print_state job_table filename system =
+  let printer c =
     Sexplib.Sexp.output_hum_indent 2 c (System.sexp_of_system system)
-  in wrap_io (Some out_state) printer
+  in wrap_io (Some filename) printer
 
-let print_addjobs job_table out_addjobs system = ()
-let print_intervalsub job_table last_heap period out_intervalsum = ()
+let print_addjobs job_table filename system =
+  let printer chan =
+    let my_printjob i =
+      let j = Hashtbl.find job_table i
+      in printjob j.r j i chan
+    in (List.map my_printjob system.waiting;
+        List.map (fun (_,i) -> my_printjob i) system.running)
+  in wrap_io (Some filename) printer
+
+let print_intervalsub job_table last_heap period filename now=
+  let printer chan =
+    let rec next h =
+      let e = Events.EventHeap.find_min h
+      in if e.time > now then
+        ()
+      else
+        (printjob e.time (Hashtbl.find job_table e.id) e.id chan;
+        next (Events.EventHeap.del_min h))
+    in next last_heap
+  in wrap_io (Some filename) printer
 
 let parse_subtrace_args () =
   let input_filename= ref "";

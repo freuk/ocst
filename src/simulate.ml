@@ -22,21 +22,22 @@ let copts swf_in swf_out initial_state additional_jobs max_procs debug seed stat
 
 let run_simulator ?period:(period=86400) ?state_out:(state_out = None) ?log_out:(log_out=None) copts reservation backfill job_table max_procs=
   let h,s =
-    let real_mp = max max_procs copts.max_procs
-    and heap_before = Events.EventHeap.of_job_table job_table
+    let heap_before = Events.EventHeap.of_job_table job_table
     in let () = match copts.additional_jobs with
       |None -> ()
       |Some fn -> let jt,_ = Io.parse_jobs fn
-      in Hashtbl.iter (fun i j -> Hashtbl.add job_table i j) jt;
-    in let s,h = match copts.initial_state with
-      |None -> System.empty_system real_mp,heap_before
+    in Hashtbl.iter (fun i j -> Hashtbl.add job_table i j) jt;
+      in let s,h = match copts.initial_state with
+      |None ->
+          let real_mp = max max_procs copts.max_procs
+          in System.empty_system real_mp,heap_before
       |Some fn ->
           begin
             let ic = open_in fn
-            in let s = try System.system_of_sexp (Sexplib.Sexp.input_sexp ic)
-                       with e ->
-                         close_in_noerr ic;
-                         raise e
+            in let s =
+              try
+                System.system_of_sexp (Sexplib.Sexp.input_sexp ic)
+              with e -> (close_in_noerr ic; raise e)
             in let events =
               let make_event (t,i) : Events.EventHeap.elem=
                 { time=(Hashtbl.find job_table i).p+t;
@@ -54,7 +55,7 @@ let run_simulator ?period:(period=86400) ?state_out:(state_out = None) ?log_out:
       in let module Scheduler = Easy.MakeEasyScheduler(Primary)(Secondary)(SchedulerParam)
   in let module S =
     Engine.MakeSimulator(Scheduler)(struct include SchedulerParam end)
-  in let hist,log = match state_out with
+      in let hist,log = match state_out with
     |Some s_out -> (S.simulate_logstates ~output_list:s_out ~period:period ~heap:h ~system:s ~history:[] ~log:[])
     |None -> (S.simulate h s [] [])
   in (Io.hist_to_swf job_table copts.swf_out hist;
@@ -83,12 +84,12 @@ let mixed copts backfill feature_out alpha alpha_threshold alpha_poly alpha_syst
                BatOption.map (f features_job_threshold) alpha_threshold;
                BatOption.map (f features_job_advanced)       alpha_poly;
                BatOption.map (f features_system_job)       alpha_system;]
-      |> List.filter BatOption.is_some
+    |> List.filter BatOption.is_some
       |> List.map BatOption.get
       |> BatList.reduce List.append
       let alpha =
         [alpha;alpha_threshold;alpha_poly;alpha_system]
-      |> List.filter BatOption.is_some
+    |> List.filter BatOption.is_some
       |> List.map BatOption.get
       |> List.map BatTuple.Tuple3.first
       |> BatList.reduce List.append
@@ -100,7 +101,7 @@ let mixed copts backfill feature_out alpha alpha_threshold alpha_poly alpha_syst
               BatOption.map (Metrics.makeMixed features_job_threshold) alpha_threshold;
               BatOption.map (Metrics.makeMixed features_job_advanced) alpha_poly;
               BatOption.map (Metrics.makeMixed features_system_job) alpha_system;]
-      |> List.filter BatOption.is_some
+    |> List.filter BatOption.is_some
       |> List.map BatOption.get
       |> BatList.reduce Metrics.makeSum
         in let module P = (val m:Metrics.Criteria)
@@ -126,6 +127,6 @@ let mixed copts backfill feature_out alpha alpha_threshold alpha_poly alpha_syst
     in let l =
       let l = BatList.map2 (fun x y -> (x,y)) state_out additional_out
       in BatList.map2 (fun (x,y) z -> (x,y,z)) l swfin_out
-    in let mbackfill = (module Metrics.FCFS:Metrics.Criteria)
+      in let mbackfill = (module Metrics.FCFS:Metrics.Criteria)
     in let module M = Easy.MakeGreedyPrimary(Metrics.FCFS)(struct let jobs = jt end)
-    in run_simulator ~state_out:(Some l) copts (module M:Easy.Primary) mbackfill jt mp
+      in run_simulator ~state_out:(Some l) copts (module M:Easy.Primary) mbackfill jt mp

@@ -84,30 +84,30 @@ struct
     ~history:history
     ~log:log =
     (*step h s where h is the event heap and s is the system*)
-    let rec step syst heap hist log last_system_log_time last_heap outl =
+    let rec step syst heap hist log last_system_log_time last_heap last_syst outl =
       match Events.EventHeap.unloadEvents heap with
         | Events.EventHeap.EndSimulation -> (hist, log)
         | Events.EventHeap.Events (h, now, eventList) ->
           begin
-            let outl, last_system_log_time, last_heap = match outl with
-              |[] -> outl, last_system_log_time, last_heap
+            let outl, last_system_log_time, last_heap, last_syst = match outl with
+              |[] -> outl, last_system_log_time, last_heap, last_syst
               |x::xs ->
                   if now-last_system_log_time < period then
-                    outl, last_system_log_time, last_heap
+                    outl, last_system_log_time, last_heap, last_syst
                   else
                     let out_state,out_addjobs,out_intervalsum = x
                     in begin
-                      Io.print_state P.jobs out_state syst;
-                      Io.print_addjobs P.jobs out_addjobs syst;
+                      Io.print_state P.jobs out_state last_syst;
+                      Io.print_addjobs P.jobs out_addjobs last_syst;
                       Io.print_intervalsub P.jobs last_heap period out_intervalsum last_system_log_time period;
-                      (xs,now,heap)
+                      (xs,now,heap,syst)
                     end
             in let s = executeEvents ~eventList:eventList syst
             in let decisions, log = Sch.schedule now s log
             in let s,h,hi = (executeDecisions s h now decisions hist)
-            in step s h hi log last_system_log_time last_heap outl
+            in step s h hi log last_system_log_time last_heap last_syst outl
           end
-    in step system eventheap history log (Events.EventHeap.find_min eventheap).time eventheap outputl
+    in step system eventheap history log (Events.EventHeap.find_min eventheap).time eventheap system outputl
 end
 
 (************************************** Stats ************************************)

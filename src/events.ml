@@ -2,13 +2,14 @@ open System
 
 (************************************** Events ***********************************)
 module EventHeap = struct
-  type event_type = Submit | Finish
+  type event_type = Submit | Finish [@@deriving show]
+  type event = { time : int;
+             id : int ;
+             event_type : event_type } [@@deriving show]
 
   module OrderedEvents =
   struct
-    type t = { time : int;
-               id : int ;
-               event_type : event_type }
+    type t = event
     let compare e1 e2 = compare e1.time e2.time
   end
 

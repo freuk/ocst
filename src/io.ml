@@ -94,11 +94,14 @@ let print_intervalsub job_table last_heap period filename now period=
   let printer chan =
     let rec next h =
       let e = Events.EventHeap.find_min h
-      in if e.time > (now + period) then
-        ()
-      else
-        (printjob e.time (Hashtbl.find job_table e.id) e.id chan;
-        next (Events.EventHeap.del_min h))
+      in match e.event_type with
+      |Events.EventHeap.Finish -> ()
+      |Events.EventHeap.Submit ->
+        if (e.time > (now + period)) || (e.time < now) then
+          ()
+        else
+          (printjob e.time (Hashtbl.find job_table e.id) e.id chan;
+          next (Events.EventHeap.del_min h))
     in next last_heap
   in wrap_io (Some filename) printer
 

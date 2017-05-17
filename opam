@@ -13,6 +13,7 @@ depends: [
   "ocamlbuild" {build}
   "topkg" {build}
   "ppx_sexp_conv"
+  "ppx_deriving"
   "sexplib"
   "cmdliner" ]
 depopts: []

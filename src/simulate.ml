@@ -48,6 +48,9 @@ let run_simulator ?period:(period=86400) ?state_out:(state_out = None) ?log_out:
             in s,h
           end
               in h,s
+  (*in let () =*)
+    (*let l = Events.EventHeap.to_list h*)
+    (*in List.map Events.EventHeap.show_event l |> List.iter (Printf.printf "%s\n")*)
       in let module SchedulerParam = struct let jobs = job_table end
   in let module CSec = (val backfill:Metrics.Criteria)
       in let module Primary = (val reservation:Easy.Primary)

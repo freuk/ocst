@@ -204,7 +204,7 @@ let state_features state_fn now_fn additional_fn output_fn =
   and now = Io.load_now now_fn
   in let values = List.map (fun (_,f) -> get_value (f jobs s now 0)) features_system
   in let s = String.concat "," (List.map (Printf.sprintf "%0.3f") values)
-  in let printer chan = Printf.fprintf chan "%s" s
+  in let printer chan = Printf.fprintf chan "%s\n" s
   in Io.wrap_io_out (Some output_fn) printer
 
 (*************************************** MIXING ***********************************)

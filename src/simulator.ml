@@ -155,6 +155,9 @@ let printstate_cmd =
   in let state_out =
     let doc = "Specify output state files."
     in Arg.(value & opt (list ~sep:',' string) [] & info ["state_out"] ~docv:"OUTSTATE" ~doc)
+  in let now_out =
+    let doc = "Specify output timestamp files."
+    in Arg.(value & opt (list ~sep:',' string) [] & info ["now_out"] ~docv:"OUTSTATE" ~doc)
   in let additional_out =
     let doc = "Specify output additional job files."
     in Arg.(value & opt (list ~sep:',' string) [] & info ["add_out"] ~docv:"OUTADD" ~doc)
@@ -172,7 +175,7 @@ let printstate_cmd =
     [`S "DESCRIPTION";
      `P doc] @ help_secs
   in
-    Term.(const Simulate.printstate $ copts_t $ period $ state_out $ additional_out $ swfin_out),
+    Term.(const Simulate.printstate $ copts_t $ period $ state_out $ now_out $ additional_out $ swfin_out),
     Term.info "printstate" ~doc ~sdocs:docs ~man
 
 let cmds = [fixed_cmd; mixed_cmd; contextual_cmd; printstate_cmd; help_cmd]

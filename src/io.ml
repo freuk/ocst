@@ -26,7 +26,7 @@ type args_subtrace = {
   weekspan                   :  int;
 }
 
-let wrap_io filename_option printer=
+let wrap_io_out filename_option printer=
   let do_io fn =
     let c = open_out fn
     in try
@@ -60,13 +60,11 @@ let printjob now j id output_channel =
         0         (* 17 Preceding Job Number           *)
         0         (* 18 Think Time From Preceding Job  *)
 
-
-
 let hist_to_swf jobs filename_option hist =
   let printer chan =
     let f (i, t) = printjob t (Hashtbl.find jobs i) i chan
     in List.iter f hist
-  in wrap_io filename_option printer
+  in wrap_io_out filename_option printer
 
 let log_to_file filename_option desc log =
   let printer chan =
@@ -75,12 +73,18 @@ let log_to_file filename_option desc log =
       let strings = List.map (Printf.sprintf "%0.3f") lf
       in Printf.fprintf chan "%s\n" (String.concat "," strings)
     in List.iter f log
-  in wrap_io filename_option printer
+  in wrap_io_out filename_option printer
 
 let print_state job_table filename system =
   let printer c =
     Sexplib.Sexp.output_hum_indent 2 c (System.sexp_of_system system)
-  in wrap_io (Some filename) printer
+  in wrap_io_out (Some filename) printer
+
+let print_now job_table filename now =
+  let printer c =
+    Sexplib.Sexp.output c (Sexplib.Std.sexp_of_int now);
+    Printf.fprintf c "%s" "\n"
+  in wrap_io_out (Some filename) printer
 
 let print_addjobs job_table filename system =
   let printer chan =
@@ -88,7 +92,7 @@ let print_addjobs job_table filename system =
       let j = Hashtbl.find job_table i
       in printjob j.r j i chan
     in List.map my_printjob (system.waiting @ (List.map snd system.running))
-  in wrap_io (Some filename) printer
+  in wrap_io_out (Some filename) printer
 
 let print_intervalsub job_table last_heap period filename now period=
   let printer chan =
@@ -103,7 +107,21 @@ let print_intervalsub job_table last_heap period filename now period=
           (printjob e.time (Hashtbl.find job_table e.id) e.id chan;
           next (Events.EventHeap.del_min h))
     in next last_heap
-  in wrap_io (Some filename) printer
+  in wrap_io_out (Some filename) printer
+
+let load_system filename =
+  let c = open_in filename
+  in try
+    let s = System.system_of_sexp (Sexplib.Sexp.input_sexp c)
+    in (close_in c;s)
+  with e -> (close_in_noerr c; raise e)
+
+let load_now filename =
+  let c = open_in filename
+  in try
+    let n = Sexplib.Std.int_of_sexp (Sexplib.Sexp.input_sexp c)
+    in (close_in c;n)
+  with e -> (close_in_noerr c; raise e)
 
 let parse_subtrace_args () =
   let input_filename= ref "";

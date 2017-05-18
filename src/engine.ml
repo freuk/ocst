@@ -25,7 +25,7 @@ end
 module type Simulator = sig
   val simulate : Events.EventHeap.t -> system -> history -> log -> (history * log)
   val simulate_logstates :
-    output_list:(string * string * string) list
+    output_list:(string * string * string * string ) list
     -> ?period:int
     -> heap:Events.EventHeap.t
     -> system:system
@@ -95,9 +95,10 @@ struct
                   if now-last_system_log_time < period then
                     outl, last_system_log_time, last_heap, last_syst
                   else
-                    let out_state,out_addjobs,out_intervalsum = x
+                    let out_state,out_now,out_addjobs,out_intervalsum = x
                     in begin
                       Io.print_state P.jobs out_state last_syst;
+                      Io.print_now P.jobs out_now last_system_log_time;
                       Io.print_addjobs P.jobs out_addjobs last_syst;
                       Io.print_intervalsub P.jobs last_heap period out_intervalsum last_system_log_time period;
                       (xs,now,heap,syst)

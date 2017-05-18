@@ -13,5 +13,6 @@ let () =
        Pkg.bin "src/subtrace" ~dst:"ocs-subtrace";
        Pkg.bin "src/swftk" ~dst:"ocs-swftk";
        Pkg.bin "src/trimmer" ~dst:"ocs-trimmer";
+       Pkg.bin "src/tk" ~dst:"ocs-tk";
   ]
 

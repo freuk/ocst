@@ -32,25 +32,16 @@ let run_simulator ?period:(period=86400) ?state_out:(state_out = None) ?log_out:
           let real_mp = max max_procs copts.max_procs
           in System.empty_system real_mp,heap_before
       |Some fn ->
-          begin
-            let ic = open_in fn
-            in let s =
-              try
-                System.system_of_sexp (Sexplib.Sexp.input_sexp ic)
-              with e -> (close_in_noerr ic; raise e)
+          let s = Io.load_system fn
             in let events =
               let make_event (t,i) : Events.EventHeap.elem=
                 { time=(Hashtbl.find job_table i).p+t;
                   id=i;
                   event_type=Events.EventHeap.Finish}
-            in List.map make_event s.running
+          in List.map make_event s.running
               in let h = List.fold_left Events.EventHeap.insert heap_before events
             in s,h
-          end
               in h,s
-  (*in let () =*)
-    (*let l = Events.EventHeap.to_list h*)
-    (*in List.map Events.EventHeap.show_event l |> List.iter (Printf.printf "%s\n")*)
       in let module SchedulerParam = struct let jobs = job_table end
   in let module CSec = (val backfill:Metrics.Criteria)
       in let module Primary = (val reservation:Easy.Primary)
@@ -125,11 +116,12 @@ let mixed copts backfill feature_out alpha alpha_threshold alpha_poly alpha_syst
   in let mbackfill = (module Metrics.FCFS:Metrics.Criteria)
         in run_simulator ~log_out:perf_out copts (module M:Easy.Primary) (module Metrics.FCFS:Criteria) jt mp
 
-  let printstate copts period state_out additional_out swfin_out=
+  let printstate copts period state_out now_out additional_out swfin_out=
     let jt,mp = Io.parse_jobs copts.swf_in
     in let l =
-      let l = BatList.map2 (fun x y -> (x,y)) state_out additional_out
-      in BatList.map2 (fun (x,y) z -> (x,y,z)) l swfin_out
+      let l = BatList.map2 (fun x y -> (x,y)) state_out now_out
+      in let l = BatList.map2 (fun (x,y) z -> (x,y,z)) l additional_out
+      in BatList.map2 (fun (x,y,z) z' -> (x,y,z,z')) l swfin_out
       in let mbackfill = (module Metrics.FCFS:Metrics.Criteria)
     in let module M = Easy.MakeGreedyPrimary(Metrics.FCFS)(struct let jobs = jt end)
       in run_simulator ~state_out:(Some l) copts (module M:Easy.Primary) mbackfill jt mp

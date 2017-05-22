@@ -114,13 +114,21 @@ let features_job_threshold =
   @ (List.map mkth' (BatList.cartesian_product thresholds features_job))
 
 let features_system =
-    let get_max accessor j =
+    let get_min accessor j =
+      List.fold_left (fun acc i -> min acc (accessor (Hashtbl.find j i)) ) 0
+    and get_min_float accessor j =
+      List.fold_left (fun acc i -> min acc (accessor (Hashtbl.find j i)) ) 0.
+    and get_max accessor j =
       List.fold_left (fun acc i -> max acc (accessor (Hashtbl.find j i)) ) 0
+    and get_max_float accessor j =
+      List.fold_left (fun acc i -> max acc (accessor (Hashtbl.find j i)) ) 0.
     and sum_zero accessor j =
       List.fold_left (fun acc i -> accessor (Hashtbl.find j i) + acc ) 0
+    and sum_zero_float accessor j =
+      List.fold_left (fun acc i -> accessor (Hashtbl.find j i) +. acc ) 0.
     and sum_elapsed now = List.fold_left (fun acc (ts,_) -> now - ts + acc ) 0
     and sum_remain now j =
-      List.fold_left (fun acc (ts,i) -> (Hashtbl.find j i).p_est + ts -now + acc ) 0
+      List.fold_left (fun acc (ts,i) -> (Hashtbl.find j i).p_est + ts - now + acc ) 0
     and sum_elapsed_q now j =
       List.fold_left (fun acc (ts,i) -> (Hashtbl.find j i).q * (now - ts) + acc ) 0
     and sum_remain_q now j =
@@ -132,14 +140,23 @@ let features_system =
        ("maxw_queue",fun j s n _ -> value_of_int (get_max (fun j -> n-j.r) j s.waiting));
        ("maxq_queue",fun j s _ _ -> value_of_int (get_max (fun j -> j.q) j s.waiting));
        ("maxp_queue",fun j s _ _ -> value_of_int (get_max (fun j -> j.p_est) j s.waiting));
+       ("minw_queue",fun j s n _ -> value_of_int (get_min (fun j -> n-j.r) j s.waiting));
+       ("minq_queue",fun j s _ _ -> value_of_int (get_min (fun j -> j.q) j s.waiting));
+       ("minp_queue",fun j s _ _ -> value_of_int (get_min (fun j -> j.p_est) j s.waiting));
        ("sumw_queue",fun j s n _ -> value_of_int (sum_zero (fun j -> n-j.r) j s.waiting));
        ("sumq_queue",fun j s n _ -> value_of_int (sum_zero (fun j -> j.q) j s.waiting));
+       ("sumpq_queue",fun j s n _ -> value_of_int (sum_zero (fun j -> j.q*j.p_est) j s.waiting));
+       ("sumr_queue",fun j s n _ -> Value (sum_zero_float (fun j -> (float_of_int j.p_est) /. (float_of_int j.q) ) j s.waiting));
+       ("maxpq_queue",fun j s n _ -> value_of_int (get_max (fun j -> j.q*j.p_est) j s.waiting));
+       ("maxr_queue",fun j s n _ -> Value (get_max_float(fun j -> (float_of_int j.p_est) /. (float_of_int j.q) ) j s.waiting));
+       ("minpq_queue",fun j s n _ -> value_of_int (get_min (fun j -> j.q*j.p_est) j s.waiting));
+       ("minr_queue",fun j s n _ -> Value (get_min_float(fun j -> (float_of_int j.p_est) /. (float_of_int j.q) ) j s.waiting));
        ("sump_queue",fun j s n _ -> value_of_int (sum_zero (fun j -> j.p_est) j s.waiting));
        ("sump_queue",fun j s n _ -> value_of_int (sum_zero (fun j -> j.p_est) j s.waiting));
-       ("sumpq_rem_run",fun j s n _ -> value_of_int (sum_remain n j s.running));
-       ("sumpq_elap_run",fun j s n _ -> value_of_int (sum_elapsed n  s.running));
-       ("sumpqq_rem_run",fun j s n _ -> value_of_int (sum_remain_q n j s.running));
-       ("sumpqq_elap_run",fun j s n _ -> value_of_int (sum_elapsed_q n j s.running));
+       ("sump_rem_run",fun j s n _ -> value_of_int (sum_remain n j s.running));
+       ("sump_elap_run",fun j s n _ -> value_of_int (sum_elapsed n  s.running));
+       ("sumpq_rem_run",fun j s n _ -> value_of_int (sum_remain_q n j s.running));
+       ("sumpq_elap_run",fun j s n _ -> value_of_int (sum_elapsed_q n j s.running));
       ]
 
 let features_job_advanced, features_system_job =

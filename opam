@@ -14,7 +14,9 @@ depends: [
   "topkg" {build}
   "ppx_sexp_conv"
   "ppx_deriving"
+  "ppx_deriving_protobuf"
   "sexplib"
+  "nanomsg"
   "cmdliner" ]
 depopts: []
 build: [

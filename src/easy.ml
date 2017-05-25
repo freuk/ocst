@@ -100,6 +100,29 @@ struct
   let reorder ~system:s ~now:now ~log:log = log, s.waiting
 end
 
+module type ContextualParam = sig
+  include PeriodParam
+  val ipc : string
+end
+
+module MakeContextualPrimary
+  (P:ContextualParam)
+  (S:SchedulerParam)
+  : Primary =
+struct
+  (*Nanomsg*)
+  let desc = "resimulation"
+  let reorder ~system:s ~now:now ~log:log = 
+    let sender = Nanomsg.socket Req 
+    in let _ = Nanomsg.connect sender @@ `Ipc P.ipc 
+    in begin
+      Nanomsg.send_string sender "testing";
+      ignore @@ Nanomsg.recv_string sender;
+      Nanomsg.close sender;
+      log, s.waiting
+    end
+end
+
 (**** Backfilling Selector ****)
 module type Secondary = sig
   val pick :

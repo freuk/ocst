@@ -102,7 +102,7 @@ let mixed copts backfill feature_out alpha alpha_threshold alpha_poly alpha_syst
     in let module M = Easy.MakeGreedyPrimary(P)(struct let jobs=jt end)
         in run_simulator ~log_out:feature_out copts (module M:Easy.Primary) backfill jt mp
 
-      let contextual copts period perf_out policies=
+      let contextual copts period policies ipc=
         let jt,mp = Io.parse_jobs copts.swf_in
   and getcrit m =
     let module M = (val m:Metrics.Criteria)
@@ -114,7 +114,7 @@ let mixed copts backfill feature_out alpha alpha_threshold alpha_poly alpha_syst
     end
         in let module M = Easy.MakePeriodPrimary(P)(struct let jobs = jt end)
   in let mbackfill = (module Metrics.FCFS:Metrics.Criteria)
-        in run_simulator ~log_out:perf_out copts (module M:Easy.Primary) (module Metrics.FCFS:Criteria) jt mp
+        in run_simulator copts (module M:Easy.Primary) (module Metrics.FCFS:Criteria) jt mp
 
   let printstate copts period state_out now_out additional_out swfin_out=
     let jt,mp = Io.parse_jobs copts.swf_in

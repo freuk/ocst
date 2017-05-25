@@ -133,21 +133,21 @@ let mixed_cmd =
 
 let contextual_cmd =
   let docs = copts_sect
-  in let perf_out =
-    let doc = "Specify output perf file."
-    in Arg.(value & opt (some string) None & info ["perf_out"] ~docv:"OUTPERF" ~doc)
   in let period =
       let doc = "Period"
       in Arg.(value & opt int 86400 & info ["period"] ~docv:"PERIOD" ~doc)
   in let policies=
     let doc = "Policies." in
     Arg.(value & opt (list ~sep:',' (enum Metrics.criteriaList)) [BatList.assoc "fcfs" Metrics.criteriaList] & info ["policies"] ~docv:"POLICIES" ~doc)
-  in let doc = "Draft. Contextual policy choice."
+  in let ipc =
+    let doc = "Ipc PAIR nanomsg channel for obtaining predictions." 
+    in Arg.(value & opt string "ipc://ocs" & info ["ipc"] ~docv:"IPC" ~doc)
+  in let doc = "Contextual policy choice."
     in let man =
     [`S "DESCRIPTION";
      `P doc] @ help_secs
   in
-    Term.(const Simulate.contextual $ copts_t $ period $ perf_out $ policies),
+    Term.(const Simulate.contextual $ copts_t $ period $ policies $ ipc),
     Term.info "contextual" ~doc ~sdocs:docs ~man
 
 let printstate_cmd =

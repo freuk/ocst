@@ -28,10 +28,10 @@ struct
   let desc = C.desc
   let crit = C.criteria S.jobs
   let reorder ~system:s ~now:now ~log:log =
-    let lv =
-    in let process_waiting i = match crit s now i with
-      |Value v -> (i,v,[])
-      |ValueLog (v,l) -> (i,v,l)
+        let lv =
+          let process_waiting i = match crit s now i with
+            |Value v -> (i,v,[])
+            |ValueLog (v,l) -> (i,v,l)
           in List.map process_waiting s.waiting
         in
           lv |> List.fold_left (fun acc (i,_,x) ->
@@ -110,27 +110,27 @@ module MakeContextualPrimary
   (S:SchedulerParam)
   : Primary =
 struct
-  type features = float list [@@deriving protobuf]
-  type pick = int [@@deriving protobuf]
+  type features = float list [@@deriving protobuf {protoc}]
+  type pick = int [@@deriving protobuf {protoc}]
   let desc = "resimulation"
   let sender = Nanomsg.socket Req 
   let _ = Nanomsg.connect sender @@ `Ipc P.ipc 
 
   let nn_pick (s:system) (now:int)  = 
-   let values = List.map 
+    let values = List.map 
      (fun (_,f) -> Metrics.get_value (f S.jobs s now 0)) 
      Metrics.features_system
-    packet = Protobuf.Encoder.encode_exn features_to_protobuf values
+    in let packet = Protobuf.Encoder.encode_exn features_to_protobuf values
     in begin
       Nanomsg.send_bytes sender packet;
-      let pick_b =  Nanomsg.recv_string sender
-      in Protobuf.Decoder.decode_exn protobuf_to_pick pick_b
+      let pick_b =  Nanomsg.recv_bytes sender
+      in Protobuf.Decoder.decode_exn pick_from_protobuf pick_b
     end
 
   let reorder ~system:s ~now:now ~log:log = 
     let criteria = List.nth P.policies (nn_pick s now)
     in let lv =
-          let process_waiting i = match crit S.jobs s now i with
+          let process_waiting i = match criteria S.jobs s now i with
             |Value v -> (i,v,[])
             |ValueLog (v,l) -> (i,v,l)
           in List.map process_waiting s.waiting

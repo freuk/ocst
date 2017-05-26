@@ -165,11 +165,11 @@ let printstate_cmd =
     let doc = "Specify output swfin job files."
     in Arg.(value & opt (list ~sep:',' string) [] & info ["swfin_out"] ~docv:"SWFINOUT" ~doc)
   in let period =
-      let doc = "Period"
-      in Arg.(value & opt int 86400 & info ["period"] ~docv:"PERIOD" ~doc)
+    let doc = "Period"
+    in Arg.(value & opt int 86400 & info ["period"] ~docv:"PERIOD" ~doc)
   in let policies=
-    let doc = "Policies." in
-    Arg.(value & opt (list ~sep:',' (enum Metrics.criteriaList)) [BatList.assoc "fcfs" Metrics.criteriaList] & info ["policies"] ~docv:"POLICIES" ~doc)
+    let doc = "Policies." 
+    in Arg.(value & opt (list ~sep:',' (enum Metrics.criteriaList)) [BatList.assoc "fcfs" Metrics.criteriaList] & info ["policies"] ~docv:"POLICIES" ~doc)
   in let doc = "Simulates the run of a classic EASY backfilling with the FCFS primary/backfilling policy and prints periodical resimulation output."
     in let man =
     [`S "DESCRIPTION";

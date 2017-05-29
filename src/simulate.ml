@@ -110,9 +110,10 @@ let mixed copts backfill feature_out alpha alpha_threshold alpha_poly alpha_syst
     in let module P =
       struct
         let period = period
-  let policies = List.map getcrit policies
+        let policies = List.map getcrit policies
+        let ipc = "/tmp/"^ipc^".ipc"
     end
-        in let module M = Easy.MakePeriodPrimary(P)(struct let jobs = jt end)
+        in let module M = Easy.MakeContextualPrimary(P)(struct let jobs = jt end)
   in let mbackfill = (module Metrics.FCFS:Metrics.Criteria)
         in run_simulator copts (module M:Easy.Primary) (module Metrics.FCFS:Criteria) jt mp
 

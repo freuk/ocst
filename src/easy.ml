@@ -113,7 +113,7 @@ struct
   type features = float list [@@deriving protobuf {protoc}]
   type pick = int [@@deriving protobuf {protoc}]
   let desc = "resimulation"
-  let sender = Nanomsg.socket Req 
+  let sender = Nanomsg.socket Req
   let _ = Nanomsg.connect sender @@ `Ipc P.ipc 
 
   let nn_pick (s:system) (now:int)  = 
@@ -122,9 +122,18 @@ struct
      Metrics.features_system
     in let packet = Protobuf.Encoder.encode_exn features_to_protobuf values
     in begin
-      Nanomsg.send_bytes sender packet;
-      let pick_b =  Nanomsg.recv_bytes sender
-      in Protobuf.Decoder.decode_exn pick_from_protobuf pick_b
+      1
+      (*let rec mysend () = *)
+        (*try Nanomsg.send_bytes ~block:true sender packet;*)
+        (*with e -> (mysend ())*)
+      (*in mysend;*)
+      (*let rec myrecv () = *)
+        (*try Nanomsg.recv_bytes ~block:true sender |> (Protobuf.Decoder.decode_exn pick_from_protobuf)*)
+        (*with e -> myrecv ()*)
+      (*in let pick_b = myrecv ()*)
+      (*in let r =  pick_b *)
+      (*in let () = Printf.printf "%d\n" r*)
+      (*in r*)
     end
 
   let reorder ~system:s ~now:now ~log:log = 

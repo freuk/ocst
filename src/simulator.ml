@@ -137,8 +137,9 @@ let contextual_cmd =
       let doc = "Period"
       in Arg.(value & opt int 86400 & info ["period"] ~docv:"PERIOD" ~doc)
   in let policies=
-    let doc = "Policies." in
-    Arg.(value & opt (list ~sep:',' (enum Metrics.criteriaList)) [BatList.assoc "fcfs" Metrics.criteriaList] & info ["policies"] ~docv:"POLICIES" ~doc)
+    let fullpol = List.map snd Metrics.criteriaList
+    and doc = "Policies." 
+    in Arg.(value & opt (list ~sep:',' (enum Metrics.criteriaList)) fullpol & info ["policies"] ~docv:"POLICIES" ~doc)
   in let ipc =
     let doc = "Ipc PAIR nanomsg channel for obtaining predictions." 
     in Arg.(value & opt string "ipc://ocs" & info ["ipc"] ~docv:"IPC" ~doc)

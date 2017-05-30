@@ -113,31 +113,28 @@ struct
   type features = float list [@@deriving protobuf {protoc}]
   type pick = int [@@deriving protobuf {protoc}]
   let desc = "resimulation"
-  let sender = Nanomsg.socket Req
-  let _ = Nanomsg.connect sender @@ `Ipc P.ipc 
-
-  let nn_pick (s:system) (now:int)  = 
-    let values = List.map 
-     (fun (_,f) -> Metrics.get_value (f S.jobs s now 0)) 
-     Metrics.features_system
-    in let packet = Protobuf.Encoder.encode_exn features_to_protobuf values
-    in begin
-      1
-      (*let rec mysend () = *)
-        (*try Nanomsg.send_bytes ~block:true sender packet;*)
-        (*with e -> (mysend ())*)
-      (*in mysend;*)
-      (*let rec myrecv () = *)
-        (*try Nanomsg.recv_bytes ~block:true sender |> (Protobuf.Decoder.decode_exn pick_from_protobuf)*)
-        (*with e -> myrecv ()*)
-      (*in let pick_b = myrecv ()*)
-      (*in let r =  pick_b *)
-      (*in let () = Printf.printf "%d\n" r*)
-      (*in r*)
-    end
+  let context = ZMQ.Context.create ()
+  let requester = ZMQ.Socket.create context ZMQ.Socket.req
+  let () = ZMQ.Socket.connect requester @@ "ipc://"^P.ipc
+  let () = Printf.printf "%s\n" "connected"
 
   let reorder ~system:s ~now:now ~log:log = 
-    let criteria = List.nth P.policies (nn_pick s now)
+    let criteria =
+      let nn_pick (s:system) (now:int)  = 
+        let values = List.map 
+         (fun (_,f) -> Metrics.get_value (f S.jobs s now 0)) 
+         Metrics.features_system
+        in let packet = 
+          let e = Protobuf.Encoder.create () 
+          in (features_to_protobuf values e; Protobuf.Encoder.to_string e)
+        in begin
+          Printf.printf "%s\n" "send";
+          ZMQ.Socket.send requester packet;
+          Printf.printf "%s\n" "recv";
+          let reply = ZMQ.Socket.recv requester 
+          in Protobuf.Decoder.decode_exn pick_from_protobuf @@ Bytes.of_string reply
+        end
+      in List.nth P.policies (nn_pick s now)
     in let lv =
           let process_waiting i = match criteria S.jobs s now i with
             |Value v -> (i,v,[])
@@ -148,6 +145,7 @@ struct
                                   ((float_of_int now)::(float_of_int i)::x)::acc) log,
           lv |> List.sort (compose_binop Pervasives.compare (fun (_,x,_) -> x))
       |> List.map (fun (x,_,_) -> x)
+
 end
 
 (**** Backfilling Selector ****)

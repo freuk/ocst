@@ -16,7 +16,7 @@ depends: [
   "ppx_deriving"
   "ppx_deriving_protobuf"
   "sexplib"
-  "nanomsg"
+  "ZMQ"
   "cmdliner" ]
 depopts: []
 build: [

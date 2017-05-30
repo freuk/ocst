@@ -116,7 +116,6 @@ struct
   let context = ZMQ.Context.create ()
   let requester = ZMQ.Socket.create context ZMQ.Socket.req
   let () = ZMQ.Socket.connect requester @@ "ipc://"^P.ipc
-  let () = Printf.printf "%s\n" "connected"
 
   let reorder ~system:s ~now:now ~log:log = 
     let criteria =
@@ -128,9 +127,7 @@ struct
           let e = Protobuf.Encoder.create () 
           in (features_to_protobuf values e; Protobuf.Encoder.to_string e)
         in begin
-          Printf.printf "%s\n" "send";
           ZMQ.Socket.send requester packet;
-          Printf.printf "%s\n" "recv";
           let reply = ZMQ.Socket.recv requester 
           in Protobuf.Decoder.decode_exn pick_from_protobuf @@ Bytes.of_string reply
         end

@@ -102,27 +102,31 @@ let mixed copts backfill feature_out alpha alpha_threshold alpha_poly alpha_syst
     in let module M = Easy.MakeGreedyPrimary(P)(struct let jobs=jt end)
         in run_simulator ~log_out:feature_out copts (module M:Easy.Primary) backfill jt mp
 
-      let contextual copts period policies ipc=
-        let jt,mp = Io.parse_jobs copts.swf_in
-  and getcrit m =
+let contextual copts period policies ipc=
+  let getcrit m =
     let module M = (val m:Metrics.Criteria)
     in M.criteria
-    in let module P =
+  and getdesc m =
+    let module M = (val m:Metrics.Criteria)
+    in M.desc
+  (*in let () = List.iter (fun x -> Printf.printf "%s" @@ getdesc x) policies*)
+  in let jt,mp = Io.parse_jobs copts.swf_in
+  in let module P =
       struct
         let period = period
         let policies = List.map getcrit policies
         let ipc = "/tmp/"^ipc^".ipc"
     end
-        in let module M = Easy.MakeContextualPrimary(P)(struct let jobs = jt end)
+  in let module M = Easy.MakeContextualPrimary(P)(struct let jobs = jt end)
   in let mbackfill = (module Metrics.FCFS:Metrics.Criteria)
-        in run_simulator copts (module M:Easy.Primary) (module Metrics.FCFS:Criteria) jt mp
+  in run_simulator copts (module M:Easy.Primary) (module Metrics.FCFS:Criteria) jt mp
 
-  let printstate copts period state_out now_out additional_out swfin_out=
-    let jt,mp = Io.parse_jobs copts.swf_in
-    in let l =
-      let l = BatList.map2 (fun x y -> (x,y)) state_out now_out
-      in let l = BatList.map2 (fun (x,y) z -> (x,y,z)) l additional_out
-      in BatList.map2 (fun (x,y,z) z' -> (x,y,z,z')) l swfin_out
-      in let mbackfill = (module Metrics.FCFS:Metrics.Criteria)
-    in let module M = Easy.MakeGreedyPrimary(Metrics.FCFS)(struct let jobs = jt end)
-      in run_simulator ~state_out:(Some l) copts (module M:Easy.Primary) mbackfill jt mp
+let printstate copts period state_out now_out additional_out swfin_out=
+  let jt,mp = Io.parse_jobs copts.swf_in
+  in let l =
+    let l = BatList.map2 (fun x y -> (x,y)) state_out now_out
+    in let l = BatList.map2 (fun (x,y) z -> (x,y,z)) l additional_out
+    in BatList.map2 (fun (x,y,z) z' -> (x,y,z,z')) l swfin_out
+    in let mbackfill = (module Metrics.FCFS:Metrics.Criteria)
+  in let module M = Easy.MakeGreedyPrimary(Metrics.FCFS)(struct let jobs = jt end)
+    in run_simulator ~state_out:(Some l) copts (module M:Easy.Primary) mbackfill jt mp

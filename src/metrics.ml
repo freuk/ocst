@@ -39,7 +39,7 @@ end
 
 module LCFS:Criteria = MakeMinus(FCFS)
 
-module SRF = struct
+module LRF = struct
   type log = float
   let desc="P/Q ratio"
   let criteria jobs _ now id =
@@ -47,30 +47,30 @@ module SRF = struct
     in Value (float_of_int j.p_est /. (float_of_int (max 1 j.q)))
 end
 
-module LRF = MakeMinus(SRF)
+module SRF = MakeMinus(LRF)
 
-module SAF = struct
+module LAF = struct
   let desc="Job maximum Area"
   let criteria jobs _ now id =
     let j = Hashtbl.find jobs id
     in Value (float_of_int (j.q * j.p_est))
 end
 
-module LAF = MakeMinus(SAF)
+module SAF = MakeMinus(LAF)
 
-module SQF = struct
+module LQF = struct
   let desc="Resource Requirement"
   let criteria jobs _ now id = Value (float_of_int (Hashtbl.find jobs id).q)
 end
 
-module LQF = MakeMinus(SQF)
+module SQF = MakeMinus(LQF)
 
-module SPF = struct
+module LPF = struct
   let desc="Processing time"
   let criteria jobs _ now id = Value (float_of_int (Hashtbl.find jobs id).p_est)
 end
 
-module LPF = MakeMinus(SPF)
+module SPF = MakeMinus(LPF)
 
 module LEXP = struct
   let desc="Expansion Factor"

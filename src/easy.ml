@@ -86,22 +86,56 @@ struct
     in ([],v)
 end
 
-module type PeriodParam = sig
-  val period : int
-  val policies : Metrics.criteria list
+module type HysteresisParam = sig
+  val threshold : float * float
+  val policies : Metrics.criteria * Metrics.criteria
 end
 
-module MakePeriodPrimary
-  (P:PeriodParam)
+module MakeHysteresisPrimary
+  (P:HysteresisParam)
   (S:SchedulerParam)
   : Primary =
 struct
-  let desc = "resimulation"
-  let reorder ~system:s ~now:now ~log:log = log, s.waiting
+  type features = float list [@@deriving protobuf {protoc}]
+  type pick = int [@@deriving protobuf {protoc}]
+  let desc = "hysteresis"
+
+  module M1 = MakeGreedyPrimary(
+    struct 
+      let desc="1"
+      let criteria = fst P.policies
+    end)(S)
+
+  module M2 = MakeGreedyPrimary(
+    struct 
+      let desc="2"
+      let criteria = snd P.policies
+    end)(S)
+
+  let memory = ref true
+
+  let reorder ~system:s ~now:now ~log:log = 
+    let values = List.map 
+     (fun (_,f) -> Metrics.get_value (f S.jobs s now 0)) 
+     Metrics.features_system
+    in let var = List.nth values 9
+    in if !memory then 
+      if var > (fst P.threshold) then
+        M2.reorder ~system:s ~now:now ~log:log 
+      else
+        (memory := false;
+        M1.reorder ~system:s ~now:now ~log:log )
+    else
+      if var < (snd P.threshold) then
+        M1.reorder ~system:s ~now:now ~log:log
+      else
+        (memory := true;
+        M2.reorder ~system:s ~now:now ~log:log )
 end
 
 module type ContextualParam = sig
-  include PeriodParam
+  val period : int
+  val policies : Metrics.criteria list
   val ipc : string
 end
 

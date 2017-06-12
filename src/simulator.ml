@@ -198,7 +198,7 @@ let printstate_cmd =
     Term.(const Simulate.printstate $ copts_t $ period $ state_out $ now_out $ additional_out $ swfin_out),
     Term.info "printstate" ~doc ~sdocs:docs ~man
 
-let cmds = [fixed_cmd; mixed_cmd; contextual_cmd; printstate_cmd; help_cmd]
+let cmds = [fixed_cmd; mixed_cmd; contextual_cmd; printstate_cmd; hysteresis_cmd; help_cmd]
 
 let default_cmd =
   let doc = "a backfilling simulator" in

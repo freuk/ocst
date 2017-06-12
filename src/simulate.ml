@@ -128,7 +128,7 @@ let hysteresis copts (thresholds: float*float) policies=
   and jt,mp = Io.parse_jobs copts.swf_in
   in let module P =
     struct
-      let thresholds = thresholds
+      let thresholds = (fst thresholds *. 10000., snd thresholds *. 10000.)
       let policies = (getcrit (fst policies),getcrit (snd policies))
     end
   in let module M = Easy.MakeHysteresisPrimary(P)(struct let jobs = jt end)

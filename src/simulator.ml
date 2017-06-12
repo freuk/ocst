@@ -135,7 +135,7 @@ let hysteresis_cmd =
   let docs = copts_sect
   in let thresholds =
       let doc = "Hysteresis thresholds"
-      in Arg.(value & opt (pair float float) (1.,40.) & info ["threshold"] ~docv:"THRESHALD" ~doc)
+      in Arg.(value & opt (pair float float) (1.,40.) & info ["thresholds"] ~docv:"THRESHALD" ~doc)
   in let policies =
     let default_pols = 
       let pl = List.map snd Metrics.criteriaList

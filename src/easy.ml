@@ -119,18 +119,28 @@ struct
      (fun (_,f) -> Metrics.get_value (f S.jobs s now 0)) 
      Metrics.features_system
     in let var = List.nth values 9
-    in if !memory then 
-      if var > (fst P.thresholds) then
-        M2.reorder ~system:s ~now:now ~log:log 
+    in let t1,t2 = P.thresholds
+    in let high = max t1 t2
+    in let low = min t1 t2
+    in let pol1, pol2 = 
+      if t1 < t2 then
+        M1.reorder, M2.reorder
       else
-        (memory := false;
-        M1.reorder ~system:s ~now:now ~log:log )
-    else
-      if var < (snd P.thresholds) then
-        M1.reorder ~system:s ~now:now ~log:log
-      else
+        M2.reorder, M1.reorder
+    in if (not !memory) then  (*if we are on P_low*)
+      if var > high then
         (memory := true;
-        M2.reorder ~system:s ~now:now ~log:log )
+        pol2 ~system:s ~now:now ~log:log)
+      else
+        (assert(!memory = false);
+        pol1 ~system:s ~now:now ~log:log)
+    else
+      if var < low then (*if we are on P_high*)
+        (memory := false;
+        pol1 ~system:s ~now:now ~log:log)
+      else
+        (assert(!memory = true);
+        pol2 ~system:s ~now:now ~log:log)
 end
 
 module type ContextualParam = sig

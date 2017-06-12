@@ -126,9 +126,10 @@ let hysteresis copts (thresholds: float*float) policies=
     let module M = (val m:Metrics.Criteria)
     in M.criteria
   and jt,mp = Io.parse_jobs copts.swf_in
+  and t1,t2 = thresholds
   in let module P =
     struct
-      let thresholds = (fst thresholds *. 10000., snd thresholds *. 10000.)
+      let thresholds = 10000. *. (abs_float t1) , 10000. *. (abs_float t2)
       let policies = (getcrit (fst policies),getcrit (snd policies))
     end
   in let module M = Easy.MakeHysteresisPrimary(P)(struct let jobs = jt end)

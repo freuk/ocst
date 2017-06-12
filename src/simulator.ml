@@ -131,6 +131,25 @@ let mixed_cmd =
       Term.(const Simulate.mixed $ copts_t $ backfill $ feature_out $ alpha $ alpha_threshold $ alpha_advanced $ alpha_system $ proba $sampling),
       Term.info "mixed" ~doc ~sdocs:docs ~man
 
+let hysteresis_cmd =
+  let docs = copts_sect
+  in let thresholds =
+      let doc = "Hysteresis thresholds"
+      in Arg.(value & opt (pair float float) (1.,40.) & info ["threshold"] ~docv:"THRESHALD" ~doc)
+  in let policies =
+    let default_pols = 
+      let pl = List.map snd Metrics.criteriaList
+      in ((List.nth pl 0),(List.nth pl 1))
+    and doc = "Policies." 
+    in Arg.(value & opt (pair (enum Metrics.criteriaList) (enum Metrics.criteriaList)) default_pols & info ["policies"] ~docv:"POLICIES" ~doc)
+  in let doc = "Hysteresis primary policy choice."
+    in let man =
+    [`S "DESCRIPTION";
+     `P doc] @ help_secs
+  in
+    Term.(const Simulate.hysteresis $ copts_t $ thresholds $ policies),
+    Term.info "contextual" ~doc ~sdocs:docs ~man
+
 let contextual_cmd =
   let docs = copts_sect
   in let period =

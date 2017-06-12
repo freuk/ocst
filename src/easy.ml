@@ -87,7 +87,7 @@ struct
 end
 
 module type HysteresisParam = sig
-  val threshold : float * float
+  val thresholds : float * float
   val policies : Metrics.criteria * Metrics.criteria
 end
 
@@ -120,13 +120,13 @@ struct
      Metrics.features_system
     in let var = List.nth values 9
     in if !memory then 
-      if var > (fst P.threshold) then
+      if var > (fst P.thresholds) then
         M2.reorder ~system:s ~now:now ~log:log 
       else
         (memory := false;
         M1.reorder ~system:s ~now:now ~log:log )
     else
-      if var < (snd P.threshold) then
+      if var < (snd P.thresholds) then
         M1.reorder ~system:s ~now:now ~log:log
       else
         (memory := true;

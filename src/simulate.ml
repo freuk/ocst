@@ -121,6 +121,21 @@ let contextual copts period policies ipc=
   in let mbackfill = (module Metrics.FCFS:Metrics.Criteria)
   in run_simulator copts (module M:Easy.Primary) (module Metrics.FCFS:Criteria) jt mp
 
+let hysteresis copts (thresholds: float*float) policies=
+  let getcrit m =
+    let module M = (val m:Metrics.Criteria)
+    in M.criteria
+  and jt,mp = Io.parse_jobs copts.swf_in
+  in let module P =
+    struct
+      let thresholds = thresholds
+      let policies = (getcrit (fst policies),getcrit (snd policies))
+    end
+  in let module M = Easy.MakeHysteresisPrimary(P)(struct let jobs = jt end)
+  in let mbackfill = (module Metrics.FCFS:Metrics.Criteria)
+  in run_simulator copts (module M:Easy.Primary) (module Metrics.FCFS:Criteria) jt mp
+
+
 let printstate copts period state_out now_out additional_out swfin_out=
   let jt,mp = Io.parse_jobs copts.swf_in
   in let l =

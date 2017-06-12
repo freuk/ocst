@@ -148,7 +148,7 @@ let hysteresis_cmd =
      `P doc] @ help_secs
   in
     Term.(const Simulate.hysteresis $ copts_t $ thresholds $ policies),
-    Term.info "contextual" ~doc ~sdocs:docs ~man
+    Term.info "hysteresis" ~doc ~sdocs:docs ~man
 
 let contextual_cmd =
   let docs = copts_sect

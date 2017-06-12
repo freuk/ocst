@@ -118,7 +118,7 @@ struct
     let values = List.map 
      (fun (_,f) -> Metrics.get_value (f S.jobs s now 0)) 
      Metrics.features_system
-    in let var = List.nth values 9
+    in let var = List.nth values 12
     in let t1,t2 = P.thresholds
     in let high = max t1 t2
     in let low = min t1 t2

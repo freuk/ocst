@@ -62,7 +62,24 @@ let join_cmd =
   Term.(const traceJoin $ swfOutput $ swfList),
   Term.info "join" ~doc ~sdocs:docs ~man
 
-let cmds = [help_cmd; join_cmd]
+let sort_cmd =
+  let docs = copts_sect
+  in let swfOutput =
+    let doc = "Output swf file." in
+    Arg.(required & pos 1 (some string) None & info [] ~docv:"SWFOUTPUT" ~doc)
+  in let swfList =
+    let doc = "Input swf file." in
+    Arg.(required & pos 0 (some file) None & info [] ~docv:"SWFINPUT" ~doc)
+  in
+  let doc = "Sorts trace according to submission time" in
+  let man =
+    [`S "DESCRIPTION";
+     `P doc] @ help_secs
+  in
+  Term.(const Tracesort.trace_sort $ swfOutput $ swfList),
+  Term.info "sort" ~doc ~sdocs:docs ~man
+
+let cmds = [help_cmd; join_cmd; sort_cmd]
 
 let default_cmd =
   let doc = "a swf toolkit" in

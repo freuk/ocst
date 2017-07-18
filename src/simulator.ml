@@ -68,6 +68,9 @@ let help_cmd =
 let fixed_cmd =
   let docs = copts_sect
   and poldesc = String.concat ", " (List.map fst Metrics.criteriaList)
+  in let threshold =
+    let doc = "Threshold value." in
+      Arg.(value & opt int 0 & info ["threshold"] ~docv:"THRESHOLD" ~doc)
   in let reservation =
     let doc = ("Primary policy among: "^poldesc) in
       Arg.(value & opt (enum Metrics.criteriaList) (BatList.assoc "fcfs" Metrics.criteriaList) & info ["primary"] ~docv:"PRIMARY" ~doc)
@@ -80,7 +83,7 @@ let fixed_cmd =
     [`S "DESCRIPTION";
      `P doc] @ help_secs
   in
-    Term.(const Simulate.fixed $ copts_t $ reservation $ backfill ),
+    Term.(const Simulate.fixed $ copts_t $ reservation $ backfill $ threshold ),
     Term.info "fixed" ~doc ~sdocs:docs ~man
 
 let mixed_cmd =

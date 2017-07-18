@@ -61,9 +61,10 @@ let run_simulator ?period:(period=86400) ?state_out:(state_out = None) ?log_out:
       in let sts = String.concat "," (List.map (Printf.sprintf "%0.3f") stv)
         in Printf.printf "%s" sts)
 
-let fixed copts reservation backfill =
+let fixed copts reservation backfill threshold =
   let jt,mp = Io.parse_jobs copts.swf_in
-  in let module M = Easy.MakeGreedyPrimary((val reservation:Metrics.Criteria))(struct let jobs = jt end)
+  in let module T = struct let threshold = threshold end 
+  in let module M = Easy.MakeThreshold(T)(Easy.MakeGreedyPrimary((val reservation:Metrics.Criteria))(struct let jobs = jt end))(struct let jobs = jt end)
   in run_simulator copts (module M:Easy.Primary) backfill jt mp
 
 let mixed copts backfill feature_out alpha alpha_threshold alpha_poly alpha_system proba sampling =

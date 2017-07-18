@@ -40,6 +40,26 @@ struct
       |> List.map (fun (x,_,_) -> x)
 end
 
+module type Threshold = sig
+  val threshold : int 
+end
+
+module MakeThreshold
+  (T:Threshold)
+  (P:Primary)
+  (S:SchedulerParam)
+  : Primary =
+struct
+  let desc = P.desc
+  let push_front now idlist = 
+    let dth = (fun x -> (now - (Hashtbl.find S.jobs x).r ) > T.threshold)
+    in let a,b = BatList.partition dth idlist
+    in a @ b
+  let reorder ~system:s ~now:now ~log:log = 
+    let (l,idlist) = P.reorder ~system:s ~now:now ~log:log
+    in (l,push_front now idlist)
+end
+
 type sampling = Softmax | Linear
 let sampling_types = 
   [ ("softmax",Softmax);

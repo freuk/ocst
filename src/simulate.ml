@@ -67,7 +67,7 @@ let fixed copts reservation backfill threshold =
   in let module M = Easy.MakeThreshold(T)(Easy.MakeGreedyPrimary((val reservation:Metrics.Criteria))(struct let jobs = jt end))(struct let jobs = jt end)
   in run_simulator copts (module M:Easy.Primary) backfill jt mp
 
-let mixed copts backfill feature_out alpha alpha_threshold alpha_poly alpha_system proba sampling =
+let mixed copts backfill feature_out alpha alpha_threshold alpha_poly alpha_system proba sampling threshold=
   let jt,mp = Io.parse_jobs copts.swf_in
   in if proba then
     let module Pc
@@ -100,7 +100,8 @@ let mixed copts backfill feature_out alpha alpha_threshold alpha_poly alpha_syst
       |> List.map BatOption.get
       |> BatList.reduce Metrics.makeSum
         in let module P = (val m:Metrics.Criteria)
-    in let module M = Easy.MakeGreedyPrimary(P)(struct let jobs=jt end)
+        in let module T = struct let threshold = threshold end 
+        in let module M = Easy.MakeThreshold(T)(Easy.MakeGreedyPrimary(P)(struct let jobs=jt end))(struct let jobs=jt end)
         in run_simulator ~log_out:feature_out copts (module M:Easy.Primary) backfill jt mp
 
 let contextual copts period policies ipc=

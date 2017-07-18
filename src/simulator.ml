@@ -92,6 +92,9 @@ let mixed_cmd =
    (*in let lalpha = *)
     (*let lcomma = Cmdliner.Arg.list ~sep:',' float*)
     (*in (some (t3 ~sep:';' lcomma lcomma lcomma))*)
+  in let threshold =
+    let doc = "Threshold value." in
+      Arg.(value & opt int 0 & info ["threshold"] ~docv:"THRESHOLD" ~doc)
     in let alpha =
       let doc =
         let d = List.length Metrics.features_job_plus
@@ -131,7 +134,7 @@ let mixed_cmd =
       [`S "DESCRIPTION";
        `P doc] @ help_secs
     in
-      Term.(const Simulate.mixed $ copts_t $ backfill $ feature_out $ alpha $ alpha_threshold $ alpha_advanced $ alpha_system $ proba $sampling),
+      Term.(const Simulate.mixed $ copts_t $ backfill $ feature_out $ alpha $ alpha_threshold $ alpha_advanced $ alpha_system $ proba $ sampling $ threshold),
       Term.info "mixed" ~doc ~sdocs:docs ~man
 
 let hysteresis_cmd =

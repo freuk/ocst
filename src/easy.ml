@@ -34,9 +34,8 @@ struct
             |ValueLog (v,l) -> (i,v,l)
           in List.map process_waiting s.waiting
         in
-          lv |> List.fold_left (fun acc (i,_,x) ->
-                                  ((float_of_int now)::(float_of_int i)::x)::acc) log,
-          lv |> List.sort (compose_binop Pervasives.compare (fun (_,x,_) -> x))
+          (lv |> List.fold_left (fun acc (i,_,x) -> ((float_of_int now)::(float_of_int i)::x)::acc) log),
+          lv |> List.sort (compose_binop Pervasives.compare (fun (_,x,_) -> -. x))
       |> List.map (fun (x,_,_) -> x)
 end
 
@@ -52,9 +51,9 @@ module MakeThreshold
 struct
   let desc = P.desc
   let push_front now idlist = 
-    let dth = (fun x -> (now - (Hashtbl.find S.jobs x).r ) > T.threshold)
+    let dth = (fun x -> (now - (Hashtbl.find S.jobs x).r) > T.threshold)
     in let a,b = BatList.partition dth idlist
-    in a @ b
+    in (List.sort (compose_binop Pervasives.compare (fun i -> (Hashtbl.find S.jobs i).r )) a) @ b
   let reorder ~system:s ~now:now ~log:log = 
     let (l,idlist) = P.reorder ~system:s ~now:now ~log:log
     in (l,push_front now idlist)
@@ -65,7 +64,6 @@ let sampling_types =
   [ ("softmax",Softmax);
     ("linear",Linear) ]
 module type ProbaPolParam = sig
-
   val sampling :  sampling
   val criterias : Metrics.criteria list
   val alpha : float list
@@ -259,9 +257,9 @@ struct
               is
           else
             picknext f f' picked is
-    and sorted =
-      let comp i1 i2 = compare (crit s now i2) (crit s now i1)
-      in List.sort comp bfable
+    and sorted = List.sort 
+    (compose_binop Pervasives.compare (fun x -> -. Metrics.get_value (crit s now x))) 
+    bfable
     in picknext free free' [] sorted
 end
 

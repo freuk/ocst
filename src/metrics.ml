@@ -50,7 +50,7 @@ end
 module SRF = MakeMinus(LRF)
 
 module LAF = struct
-  let desc="Job maximum Area"
+  let desc="Job Area"
   let criteria jobs _ now id =
     let j = Hashtbl.find jobs id
     in Value (float_of_int (j.q * j.p_est))
@@ -211,11 +211,6 @@ let features_job_plus : (string*criteria) list =
   [("exp",SEXP.criteria);
   ("r",SRF.criteria);
   ("a",SAF.criteria);]
-
-(*let features_job_2 : criteria list  =*)
-(*[LRF.criteria;*)
-(*LAF.criteria;*)
-(*LEXP.criteria;]*)
 
 (*************************************** FEATURE TOOLKIT **************************)
 

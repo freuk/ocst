@@ -89,7 +89,8 @@ let mixed copts backfill feature_out alpha alpha_threshold alpha_poly alpha_syst
       |> List.map BatTuple.Tuple3.first
       |> BatList.reduce List.append
   end
-        in let module M = Easy.MakeProbabilisticPrimary(Pc)(struct let jobs=jt end)
+        in let module T = struct let threshold = threshold end 
+        in let module M = Easy.MakeThreshold(T)(Easy.MakeProbabilisticPrimary(Pc)(struct let jobs=jt end))(struct let jobs=jt end)
       in run_simulator copts (module M:Easy.Primary) backfill jt mp
   else
     let m = [ BatOption.map (Metrics.makeMixed features_job_plus)               alpha;
